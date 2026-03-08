@@ -1,0 +1,246 @@
+import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { motion, AnimatePresence } from "framer-motion";
+import { Terminal, ChevronDown, ChevronUp, Loader2, Check, Pencil, Trash2, DollarSign } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { getAvatarStyle } from "./avatarUtils";
+
+const MONEY_AMOUNTS = [100, 500, 1000, 9999];
+
+export default function DevMode({ wallet, onRefresh }) {
+  const [open, setOpen] = useState(true);
+  const [allWallets, setAllWallets] = useState([]);
+  const [loadingWallets, setLoadingWallets] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editField, setEditField] = useState(null);
+  const [newName, setNewName] = useState("");
+  const [newBalance, setNewBalance] = useState("");
+  const [savingId, setSavingId] = useState(null);
+  const [addingMoney, setAddingMoney] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [customAmount, setCustomAmount] = useState("");
+
+  const fetchAllWallets = async () => {
+    setLoadingWallets(true);
+    const all = await base44.entities.Wallet.list();
+    setAllWallets(all.filter((w) => w.id !== wallet.id));
+    setLoadingWallets(false);
+  };
+
+  const handleOpen = (val) => {
+    setOpen(val);
+    if (val) fetchAllWallets();
+  };
+
+  const handleAddMoney = async (amount) => {
+    setAddingMoney(true);
+    await base44.entities.Wallet.update(wallet.id, { balance: wallet.balance + amount });
+    await onRefresh();
+    setAddingMoney(false);
+    toast.success(`+$${amount} added to your wallet!`);
+  };
+
+  const handleRename = async (target) => {
+    if (!newName.trim()) return;
+    setSavingId(target.id);
+    await base44.entities.Wallet.update(target.id, { username: newName.trim() });
+    toast.success(`Renamed to "${newName.trim()}"`);
+    setEditingId(null);
+    setEditField(null);
+    setNewName("");
+    setSavingId(null);
+    await fetchAllWallets();
+  };
+
+  const handleSetBalance = async (target) => {
+    const val = parseFloat(newBalance);
+    if (isNaN(val) || val < 0) { toast.error("Invalid amount"); return; }
+    setSavingId(target.id);
+    await base44.entities.Wallet.update(target.id, { balance: val });
+    toast.success(`Balance set to $${val.toFixed(2)}`);
+    setEditingId(null);
+    setEditField(null);
+    setNewBalance("");
+    setSavingId(null);
+    await fetchAllWallets();
+  };
+
+  const handleDelete = async (target) => {
+    setDeletingId(target.id);
+    await base44.entities.Wallet.delete(target.id);
+    toast.success(`Deleted "${target.username}"`);
+    setDeletingId(null);
+    await fetchAllWallets();
+  };
+
+  const startEdit = (w, field) => {
+    setEditingId(w.id);
+    setEditField(field);
+    if (field === "name") setNewName(w.username);
+    if (field === "balance") setNewBalance(String(w.balance ?? ""));
+  };
+
+  const cancelEdit = () => { setEditingId(null); setEditField(null); setNewName(""); setNewBalance(""); };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl border border-green-500/30 bg-black/40 backdrop-blur-xl overflow-hidden"
+    >
+      <button
+        onClick={() => handleOpen(!open)}
+        className="w-full flex items-center justify-between px-5 py-4 text-green-400 hover:bg-green-500/5 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Terminal className="w-5 h-5" />
+          <span className="font-mono font-bold text-sm tracking-widest">DEV MODE</span>
+          <span className="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full font-mono">v∞</span>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="px-5 pb-5 space-y-5">
+              {/* Add Money to self */}
+              <div>
+                <p className="text-green-300/70 text-xs font-mono mb-3 uppercase tracking-widest">∞ Add Money to Your Wallet</p>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {MONEY_AMOUNTS.map((amt) => (
+                    <button
+                      key={amt}
+                      onClick={() => handleAddMoney(amt)}
+                      disabled={addingMoney}
+                      className="py-2 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-300 font-mono text-sm font-bold transition-all hover:scale-105 disabled:opacity-50"
+                    >
+                      {addingMoney ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `+$${amt}`}
+                    </button>
+                  ))}
+                </div>
+                {/* Custom amount */}
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    value={customAmount}
+                    onChange={e => setCustomAmount(e.target.value)}
+                    placeholder="Custom amount..."
+                    className="h-8 text-sm bg-white/10 border-white/10 text-white placeholder:text-slate-500"
+                    onKeyDown={e => { if (e.key === "Enter" && customAmount) handleAddMoney(parseFloat(customAmount)); }}
+                  />
+                  <button
+                    onClick={() => { if (customAmount) { handleAddMoney(parseFloat(customAmount)); setCustomAmount(""); } }}
+                    disabled={addingMoney || !customAmount}
+                    className="px-3 py-1.5 rounded-xl bg-green-500/20 hover:bg-green-500/30 text-green-400 font-bold text-sm disabled:opacity-50 flex-shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Manage Users */}
+              <div>
+                <p className="text-green-300/70 text-xs font-mono mb-3 uppercase tracking-widest">⚙ Manage All Users</p>
+                {loadingWallets ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-5 h-5 text-green-400 animate-spin" />
+                  </div>
+                ) : allWallets.length === 0 ? (
+                  <p className="text-slate-500 text-xs font-mono text-center py-3">No other users found.</p>
+                ) : (
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {allWallets.map((w) => (
+                      <div key={w.id} className="bg-white/5 rounded-xl px-3 py-2 space-y-2">
+                        {/* User row */}
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                            style={getAvatarStyle(w)}
+                          >
+                            {w.username?.[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{w.username}</p>
+                            <p className="text-slate-400 text-xs font-mono">${w.balance?.toFixed(2)}</p>
+                          </div>
+                          {/* Action buttons */}
+                          <button
+                            onClick={() => startEdit(w, "name")}
+                            title="Rename"
+                            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => startEdit(w, "balance")}
+                            title="Set balance"
+                            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-green-500/20 text-slate-400 hover:text-green-400 flex items-center justify-center transition-colors"
+                          >
+                            <DollarSign className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(w)}
+                            disabled={deletingId === w.id}
+                            title="Delete user"
+                            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 flex items-center justify-center transition-colors"
+                          >
+                            {deletingId === w.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+
+                        {/* Inline edit: name */}
+                        {editingId === w.id && editField === "name" && (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={newName}
+                              onChange={(e) => setNewName(e.target.value)}
+                              placeholder="New name..."
+                              className="h-8 text-sm bg-white/10 border-white/10 text-white placeholder:text-slate-500 flex-1"
+                              onKeyDown={(e) => e.key === "Enter" && handleRename(w)}
+                              autoFocus
+                            />
+                            <button onClick={() => handleRename(w)} disabled={savingId === w.id} className="w-8 h-8 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 flex items-center justify-center flex-shrink-0">
+                              {savingId === w.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </button>
+                            <button onClick={cancelEdit} className="text-slate-500 hover:text-slate-300 text-xs px-1">✕</button>
+                          </div>
+                        )}
+
+                        {/* Inline edit: balance */}
+                        {editingId === w.id && editField === "balance" && (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={newBalance}
+                              onChange={(e) => setNewBalance(e.target.value)}
+                              placeholder="New balance..."
+                              type="number"
+                              className="h-8 text-sm bg-white/10 border-white/10 text-white placeholder:text-slate-500 flex-1"
+                              onKeyDown={(e) => e.key === "Enter" && handleSetBalance(w)}
+                              autoFocus
+                            />
+                            <button onClick={() => handleSetBalance(w)} disabled={savingId === w.id} className="w-8 h-8 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 flex items-center justify-center flex-shrink-0">
+                              {savingId === w.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </button>
+                            <button onClick={cancelEdit} className="text-slate-500 hover:text-slate-300 text-xs px-1">✕</button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
