@@ -14,7 +14,7 @@ const TABS = [
   { id: "backgrounds", label: "Avatar BG",    icon: ShoppingBag },
   { id: "fonts",       label: "Fonts",         icon: Type },
   { id: "lettercolor", label: "Letter",        icon: Palette },
-  { id: "hair",        label: "Cosmetics",     icon: Sparkles },
+  { id: "hair",        label: "Hair",          icon: Sparkles },
   { id: "sitebg",      label: "Site BG",       icon: Globe },
 ];
 
@@ -206,7 +206,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
           </div>
         )}
 
-        {/* Cosmetics */}
+        {/* Hairstyles */}
         {tab === "hair" && (
           <div className="overflow-y-auto p-4 grid grid-cols-3 gap-3">
             {[...HAIRSTYLES].sort((a, b) => a.price - b.price).map(hair => {
