@@ -8,7 +8,7 @@ import { getAvatarStyle } from "./avatarUtils";
 
 const MONEY_AMOUNTS = [100, 500, 1000, 9999];
 
-export default function DevMode({ wallet, onRefresh }) {
+export default function DevMode({ wallet, onRefresh, onSwitchUser }) {
   const [open, setOpen] = useState(true);
   const [allWallets, setAllWallets] = useState([]);
   const [loadingWallets, setLoadingWallets] = useState(false);
@@ -199,6 +199,13 @@ export default function DevMode({ wallet, onRefresh }) {
                             <p className="text-slate-400 text-xs font-mono">${w.balance?.toFixed(2)}</p>
                           </div>
                           {/* Action buttons */}
+                          <button
+                            onClick={() => onSwitchUser?.(w.id)}
+                            title="Switch to this user"
+                            className="px-2 h-7 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-bold tracking-wide transition-colors"
+                          >
+                            Switch
+                          </button>
                           <button
                             onClick={() => startEdit(w, "name")}
                             title="Rename"

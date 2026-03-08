@@ -141,6 +141,30 @@ export default function Home() {
     await refreshData();
   };
 
+  const handleSwitchUser = async (walletId) => {
+    if (!walletId) return;
+    localStorage.setItem(WALLET_ID_KEY, walletId);
+    const all = await base44.entities.Wallet.list();
+    const found = all.find((w) => w.id === walletId);
+    if (!found) return;
+    setMyWallet(found);
+    walletRef.current = found;
+    await loadTransactions(found.id);
+    await loadUpgrades(found.id);
+  };
+
+  useEffect(() => {
+    if (!myWallet?.id) return;
+    const refresh = () => refreshData();
+    const unsubs = [
+      base44.entities.Wallet.subscribe(refresh),
+      base44.entities.Transaction.subscribe(refresh),
+      base44.entities.CoinFlip.subscribe(refresh),
+      base44.entities.Charity.subscribe(refresh),
+    ];
+    return () => unsubs.forEach((u) => u?.());
+  }, [myWallet?.id]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #020617, #1e1b4b, #2e1065)" }}>
@@ -182,7 +206,7 @@ export default function Home() {
         </motion.div>
 
         {isDevMode && (
-          <DevMode wallet={myWallet} onRefresh={refreshData} />
+          <DevMode wallet={myWallet} onRefresh={refreshData} onSwitchUser={handleSwitchUser} />
         )}
 
         <PayByName
