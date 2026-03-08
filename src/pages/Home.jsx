@@ -21,6 +21,15 @@ import UpgradeShop from "../components/wallet/UpgradeShop";
 import CollectorOverlay from "../components/wallet/CollectorOverlay";
 
 const WALLET_ID_KEY = "payflow_wallet_id";
+const STARTUP_TIMEOUT_MS = 6000;
+
+function withTimeout(promise, ms, message) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
 
 export default function Home() {
   const [showPayByName, setShowPayByName] = useState(false);
@@ -39,19 +48,34 @@ export default function Home() {
   const passiveTimerRef = useRef(null);
 
   const loadWallet = async () => {
-    const savedId = localStorage.getItem(WALLET_ID_KEY);
-    if (!savedId) { setLoading(false); return; }
-    const all = await base44.entities.Wallet.list();
-    const found = all.find((w) => w.id === savedId);
-    if (found) {
-      setMyWallet(found);
-      walletRef.current = found;
-      await loadTransactions(found.id);
-      await loadUpgrades(found.id);
-    } else {
+    try {
+      const savedId = localStorage.getItem(WALLET_ID_KEY);
+      if (!savedId) { setLoading(false); return; }
+
+      const all = await withTimeout(
+        base44.entities.Wallet.list(),
+        STARTUP_TIMEOUT_MS,
+        "Wallet bootstrap timed out"
+      );
+      const found = all.find((w) => w.id === savedId);
+      if (found) {
+        setMyWallet(found);
+        walletRef.current = found;
+        await Promise.allSettled([
+          loadTransactions(found.id),
+          loadUpgrades(found.id),
+        ]);
+      } else {
+        localStorage.removeItem(WALLET_ID_KEY);
+      }
+    } catch (error) {
+      console.error("Wallet bootstrap failed:", error);
       localStorage.removeItem(WALLET_ID_KEY);
+      setMyWallet(null);
+      walletRef.current = null;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const loadUpgrades = async (walletId) => {

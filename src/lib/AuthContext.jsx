@@ -4,6 +4,15 @@ import { base44 } from '@/api/base44Client';
 const AuthContext = createContext();
 const BYPASS_AUTH = (import.meta.env.VITE_BASE44_BYPASS_AUTH ?? 'true') === 'true';
 const GUEST_USER = { id: 'guest-user', name: 'Guest User' };
+const AUTH_TIMEOUT_MS = 5000;
+
+function withTimeout(promise, ms, message) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -37,7 +46,7 @@ export const AuthProvider = ({ children }) => {
 
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
-      const currentUser = await base44.auth.me();
+      const currentUser = await withTimeout(base44.auth.me(), AUTH_TIMEOUT_MS, 'Auth lookup timed out');
       setUser(currentUser);
       setIsAuthenticated(true);
       setAuthError(null);
