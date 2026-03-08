@@ -1,4 +1,8 @@
+import { createClient } from "@base44/sdk";
+
 const DB_KEY = "flowplay_local_db_v1";
+const BACKEND_MODE = (import.meta.env.VITE_BACKEND_MODE || "local").toLowerCase();
+const BASE44_APP_ID = import.meta.env.VITE_BASE44_APP_ID;
 
 const ENTITY_NAMES = [
   "Wallet",
@@ -77,6 +81,18 @@ const notify = (entity, operation, record) => {
     data: record,
   };
   for (const cb of cbs) cb(event);
+};
+
+const makeEvent = (entity, operation, record) => ({
+  entity,
+  operation,
+  record,
+  type: operation,
+  data: record,
+});
+
+const callCallbacks = (callbacks, event) => {
+  for (const cb of callbacks) cb(event);
 };
 
 const indexById = (list) => {
@@ -186,11 +202,102 @@ const entityApi = (entity) => ({
   },
 });
 
-export const base44 = {
+const createRemoteEntityApi = (remoteClient, entity) => {
+  const subscribers = new Set();
+  let pollTimer = null;
+  let snapshot = new Map();
+
+  const startPolling = () => {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+      try {
+        const current = await remoteClient.entities[entity].list("-created_date", 500);
+        const next = new Map((current || []).map((item) => [item.id, item]));
+
+        for (const [id, record] of next.entries()) {
+          if (!snapshot.has(id)) {
+            callCallbacks(subscribers, makeEvent(entity, "create", record));
+          } else if (JSON.stringify(snapshot.get(id)) !== JSON.stringify(record)) {
+            callCallbacks(subscribers, makeEvent(entity, "update", record));
+          }
+        }
+
+        for (const [id, record] of snapshot.entries()) {
+          if (!next.has(id)) {
+            callCallbacks(subscribers, makeEvent(entity, "delete", record));
+          }
+        }
+
+        snapshot = next;
+      } catch {
+        // Keep polling; transient network/auth failures should not crash UI.
+      }
+    }, 1500);
+  };
+
+  const stopPolling = () => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  };
+
+  return {
+    list: async (sortBy, limit) => remoteClient.entities[entity].list(sortBy, limit),
+    filter: async (criteria) => remoteClient.entities[entity].filter(criteria),
+    create: async (payload) => {
+      const created = await remoteClient.entities[entity].create(payload);
+      callCallbacks(subscribers, makeEvent(entity, "create", created));
+      return created;
+    },
+    update: async (id, patch) => {
+      const updated = await remoteClient.entities[entity].update(id, patch);
+      callCallbacks(subscribers, makeEvent(entity, "update", updated));
+      return updated;
+    },
+    delete: async (id) => {
+      // Fetch record before delete so callbacks can still get payload.
+      let deleted = null;
+      try {
+        const all = await remoteClient.entities[entity].list();
+        deleted = (all || []).find((r) => r.id === id) || null;
+      } catch {
+        deleted = { id };
+      }
+      await remoteClient.entities[entity].delete(id);
+      callCallbacks(subscribers, makeEvent(entity, "delete", deleted || { id }));
+    },
+    subscribe: (callback) => {
+      subscribers.add(callback);
+      if (subscribers.size === 1) startPolling();
+      return () => {
+        subscribers.delete(callback);
+        if (subscribers.size === 0) stopPolling();
+      };
+    },
+  };
+};
+
+const createLocalClient = () => ({
   entities: Object.fromEntries(ENTITY_NAMES.map((name) => [name, entityApi(name)])),
   auth: {
     me: async () => ({ id: "local-user", name: "Local User" }),
     logout: () => {},
     redirectToLogin: () => {},
   },
+});
+
+const createRemoteClient = () => {
+  const remoteClient = createClient({ appId: BASE44_APP_ID });
+  return {
+    entities: Object.fromEntries(
+      ENTITY_NAMES.map((name) => [name, createRemoteEntityApi(remoteClient, name)])
+    ),
+    auth: remoteClient.auth,
+  };
 };
+
+export const base44 =
+  BACKEND_MODE === "base44" && BASE44_APP_ID
+    ? createRemoteClient()
+    : createLocalClient();
