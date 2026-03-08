@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
 const AuthContext = createContext();
-const BYPASS_AUTH = (import.meta.env.VITE_BASE44_BYPASS_AUTH ?? 'true') === 'true';
+const BYPASS_AUTH = (import.meta.env.VITE_BASE44_BYPASS_AUTH ?? 'false') === 'true';
 const GUEST_USER = { id: 'guest-user', name: 'Guest User' };
 const AUTH_TIMEOUT_MS = 5000;
 

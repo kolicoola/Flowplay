@@ -32,7 +32,8 @@ jobs:
 
       - name: Build
         env:
-          VITE_BACKEND_MODE: local
+          VITE_BACKEND_MODE: base44
+          VITE_BASE44_APP_ID: 69ab11a6280b848cab3002cd
         run: npm run build -- --base=/${{ github.event.repository.name }}/
 
       - name: Upload Pages artifact

@@ -22,9 +22,13 @@ const writeAccounts = (accounts) => {
 };
 
 const normalize = (value) => value.trim().toLowerCase();
+const BACKEND_MODE = (import.meta.env.VITE_BACKEND_MODE || "base44").toLowerCase();
+const IS_REMOTE = BACKEND_MODE === "base44";
 
 export default function AuthScreen({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -33,6 +37,41 @@ export default function AuthScreen({ onAuthenticated }) {
   const title = useMemo(() => (mode === "login" ? "Sign In" : "Create Account"), [mode]);
 
   const handleLogin = async () => {
+    if (IS_REMOTE) {
+      if (!email.trim() || !password) {
+        setError("Enter email and password");
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+      try {
+        await base44.auth.loginViaEmailPassword(email.trim(), password);
+        const me = await base44.auth.me();
+        const allWallets = await base44.entities.Wallet.list();
+        let wallet = allWallets.find((w) => w.auth_user_id === me.id);
+
+        if (!wallet) {
+          const avatarPalette = ["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#22c55e", "#06b6d4"];
+          const avatarColor = avatarPalette[Math.floor(Math.random() * avatarPalette.length)];
+          const derivedName = (me.email || "user").split("@")[0];
+          wallet = await base44.entities.Wallet.create({
+            username: derivedName,
+            auth_user_id: me.id,
+            balance: 1000,
+            avatar_color: avatarColor,
+          });
+        }
+
+        await onAuthenticated(wallet);
+      } catch (e) {
+        setError(e?.message || "Could not sign in. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const cleanName = username.trim();
     if (!cleanName || !password) {
       setError("Enter username and password");
@@ -65,6 +104,52 @@ export default function AuthScreen({ onAuthenticated }) {
   };
 
   const handleRegister = async () => {
+    if (IS_REMOTE) {
+      const cleanDisplay = displayName.trim();
+      if (cleanDisplay.length < 2) {
+        setError("Display name must be at least 2 characters");
+        return;
+      }
+      if (!email.trim()) {
+        setError("Enter an email");
+        return;
+      }
+      if (password.length < 4) {
+        setError("Password must be at least 4 characters");
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+      try {
+        await base44.auth.register({ email: email.trim(), password });
+        await base44.auth.loginViaEmailPassword(email.trim(), password);
+        const me = await base44.auth.me();
+        const allWallets = await base44.entities.Wallet.list();
+        let wallet = allWallets.find((w) => w.auth_user_id === me.id);
+
+        if (!wallet) {
+          const avatarPalette = ["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#22c55e", "#06b6d4"];
+          const avatarColor = avatarPalette[Math.floor(Math.random() * avatarPalette.length)];
+          wallet = await base44.entities.Wallet.create({
+            username: cleanDisplay,
+            auth_user_id: me.id,
+            balance: 1000,
+            avatar_color: avatarColor,
+          });
+        } else if (wallet.username !== cleanDisplay) {
+          wallet = await base44.entities.Wallet.update(wallet.id, { username: cleanDisplay });
+        }
+
+        await onAuthenticated(wallet);
+      } catch (e) {
+        setError(e?.message || "Could not create account. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const cleanName = username.trim();
     if (cleanName.length < 2) {
       setError("Username must be at least 2 characters");
@@ -140,16 +225,44 @@ export default function AuthScreen({ onAuthenticated }) {
         </div>
 
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl space-y-5">
-          <Input
-            value={username}
-            onChange={(e) => {
-              setUsername(e.target.value);
-              setError("");
-            }}
-            placeholder="Username"
-            className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          />
+          {IS_REMOTE ? (
+            <>
+              {mode === "register" && (
+                <Input
+                  value={displayName}
+                  onChange={(e) => {
+                    setDisplayName(e.target.value);
+                    setError("");
+                  }}
+                  placeholder="Display name"
+                  className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
+                  onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                />
+              )}
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError("");
+                }}
+                placeholder="Email"
+                className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              />
+            </>
+          ) : (
+            <Input
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                setError("");
+              }}
+              placeholder="Username"
+              className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            />
+          )}
 
           <Input
             type="password"
