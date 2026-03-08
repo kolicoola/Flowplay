@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { getSiteBgStyle } from "../components/wallet/avatarUtils";
 import { UPGRADES } from "../components/wallet/UpgradeShop";
 
-import WelcomeScreen from "../components/wallet/WelcomeScreen";
+import AuthScreen from "../components/wallet/AuthScreen";
 import BalanceCard from "../components/wallet/BalanceCard";
 import ActionButtons from "../components/wallet/ActionButtons";
 import PayByName from "../components/wallet/PayByName";
@@ -136,15 +136,14 @@ export default function Home() {
 
   const isDevMode = myWallet?.username?.toLowerCase() === "payflow";
 
-  const handleWelcomeComplete = async (name, color) => {
-    const wallet = await base44.entities.Wallet.create({
-      username: name,
-      balance: 1000,
-      avatar_color: color,
-    });
+  const handleAuthComplete = async (wallet) => {
     localStorage.setItem(WALLET_ID_KEY, wallet.id);
     setMyWallet(wallet);
     walletRef.current = wallet;
+    await Promise.allSettled([
+      loadTransactions(wallet.id),
+      loadUpgrades(wallet.id),
+    ]);
     setLoading(false);
   };
 
@@ -198,7 +197,7 @@ export default function Home() {
   }
 
   if (!myWallet) {
-    return <WelcomeScreen onComplete={handleWelcomeComplete} />;
+    return <AuthScreen onAuthenticated={handleAuthComplete} />;
   }
 
   const siteBgStyle = getSiteBgStyle(myWallet?.site_background);

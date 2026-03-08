@@ -2,7 +2,7 @@ import { createClient } from "@base44/sdk";
 
 const DB_KEY = "flowplay_local_db_v1";
 const DEFAULT_BASE44_APP_ID = "69ab11a6280b848cab3002cd";
-const BACKEND_MODE = (import.meta.env.VITE_BACKEND_MODE || "base44").toLowerCase();
+const BACKEND_MODE = (import.meta.env.VITE_BACKEND_MODE || "local").toLowerCase();
 const BASE44_APP_ID = import.meta.env.VITE_BASE44_APP_ID || DEFAULT_BASE44_APP_ID;
 
 const ENTITY_NAMES = [
