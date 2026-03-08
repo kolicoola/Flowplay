@@ -32,6 +32,12 @@ Run the app: `npm run dev`
 
 Open [Base44.com](http://Base44.com) and click on Publish.
 
+**Note on GitHub Pages / Automatic Hosting**
+
+The Base44 project template originally included a GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) that automatically built and deployed this site to **GitHub Pages** on every push to `main`. This caused the site to be publicly accessible at `https://kolicoola.github.io/Flowplay/` — using GitHub's free static hosting and DNS — without any explicit setup by the repository owner.
+
+That workflow has been removed. The site will **no longer be automatically deployed** to GitHub Pages. If you wish to re-enable GitHub Pages hosting in the future, you can restore the workflow or enable Pages manually in the repository settings.
+
 **Docs & Support**
 
 Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
