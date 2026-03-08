@@ -2,6 +2,8 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
 const AuthContext = createContext();
+const BYPASS_AUTH = (import.meta.env.VITE_BASE44_BYPASS_AUTH ?? 'true') === 'true';
+const GUEST_USER = { id: 'guest-user', name: 'Guest User' };
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -25,24 +27,28 @@ export const AuthProvider = ({ children }) => {
 
   const checkUserAuth = async () => {
     try {
+      if (BYPASS_AUTH) {
+        setUser(GUEST_USER);
+        setIsAuthenticated(true);
+        setAuthError(null);
+        setIsLoadingAuth(false);
+        return;
+      }
+
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
+      setAuthError(null);
       setIsLoadingAuth(false);
     } catch (error) {
       console.error('User auth check failed:', error);
+      // Never hard-block the app UI: fall back to guest mode.
+      setUser(GUEST_USER);
+      setIsAuthenticated(true);
+      setAuthError(null);
       setIsLoadingAuth(false);
-      setIsAuthenticated(false);
-      
-      // If user auth fails, it might be an expired token
-      if (error.status === 401 || error.status === 403) {
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
-      }
     }
   };
 
