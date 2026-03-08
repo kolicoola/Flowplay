@@ -5,7 +5,7 @@ import { ShoppingBag, X, Check, Lock, Type, Palette, Sparkles, Globe } from "luc
 import { toast } from "sonner";
 import {
   AVATAR_BACKGROUNDS, FONTS, LETTER_COLORS, HAIRSTYLES, SITE_BACKGROUNDS,
-  getAvatarBgStyle, getFontStyle, getLetterColorStyle, getAvatarStyle
+  getAvatarBgStyle, getFontStyle, getLetterColorStyle, getAvatarStyle, HairOverlay
 } from "./avatarUtils";
 
 export { getAvatarBgStyle, AVATAR_BACKGROUNDS } from "./avatarUtils";
@@ -14,7 +14,7 @@ const TABS = [
   { id: "backgrounds", label: "Avatar BG",    icon: ShoppingBag },
   { id: "fonts",       label: "Fonts",         icon: Type },
   { id: "lettercolor", label: "Letter",        icon: Palette },
-  { id: "hair",        label: "Hair",          icon: Sparkles },
+  { id: "hair",        label: "Cosmetics",     icon: Sparkles },
   { id: "sitebg",      label: "Site BG",       icon: Globe },
 ];
 
@@ -60,12 +60,10 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
   const letterStyle = getLetterColorStyle(currentLetterColor);
   const avatarBgForPreview = getAvatarBgStyle(current, wallet.avatar_color);
   const fontStyleForPreview = getFontStyle(currentFont);
-  const hairEmoji = HAIRSTYLES.find(h => h.id === currentHair)?.emoji;
-
-  function AvatarPreview({ bgStyle, fontStyle, lcStyle, hair, size = "w-14 h-14" }) {
+  function AvatarPreview({ bgStyle, fontStyle, lcStyle, hairId, size = "w-14 h-14" }) {
     return (
       <div className="relative inline-flex flex-col items-center">
-        {hair && <span className="text-lg absolute -top-3 left-1/2 -translate-x-1/2 z-10">{hair}</span>}
+        <HairOverlay hairId={hairId} size="md" />
         <div className={`${size} rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg`}
           style={{ ...bgStyle, ...fontStyle }}>
           <span style={lcStyle}>{wallet.username?.[0]?.toUpperCase()}</span>
@@ -122,7 +120,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
                   onClick={() => isOwned ? equip("avatar_background", bg.id, bg.label) : buy("avatar_background", "owned_backgrounds", bg.id, bg.price, bg.label)}
                   className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
                 >
-                  <AvatarPreview bgStyle={bgStyle} fontStyle={fontStyleForPreview} lcStyle={letterStyle} hair={hairEmoji} />
+                  <AvatarPreview bgStyle={bgStyle} fontStyle={fontStyleForPreview} lcStyle={letterStyle} hairId={currentHair} />
                   <span className="text-white text-xs font-medium text-center leading-tight">{bg.label}</span>
                   {isEquipped ? <span className="text-violet-400 text-xs flex items-center gap-0.5 font-bold"><Check className="w-3 h-3" /> On</span>
                     : isOwned ? <span className="text-emerald-400 text-xs font-semibold">Equip</span>
@@ -151,7 +149,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
                   className={`relative w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
                 >
                   <div className="relative inline-flex flex-col items-center flex-shrink-0">
-                    {hairEmoji && <span className="text-sm absolute -top-3 left-1/2 -translate-x-1/2">{hairEmoji}</span>}
+                    <HairOverlay hairId={currentHair} size="md" />
                     <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl shadow-lg"
                       style={{ ...avatarBgForPreview, ...fontStyle, fontWeight: fontStyle.fontWeight || "bold" }}>
                       <span style={letterStyle}>{wallet.username?.[0]?.toUpperCase()}</span>
@@ -190,7 +188,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
                   className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
                 >
                   <div className="relative inline-flex flex-col items-center">
-                    {hairEmoji && <span className="text-base absolute -top-3 left-1/2 -translate-x-1/2">{hairEmoji}</span>}
+                    <HairOverlay hairId={currentHair} size="md" />
                     <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold shadow-lg"
                       style={{ ...avatarBgForPreview, ...fontStyleForPreview }}>
                       <span style={lcStyle}>{wallet.username?.[0]?.toUpperCase()}</span>
@@ -208,7 +206,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
           </div>
         )}
 
-        {/* Hairstyles */}
+        {/* Cosmetics */}
         {tab === "hair" && (
           <div className="overflow-y-auto p-4 grid grid-cols-3 gap-3">
             {[...HAIRSTYLES].sort((a, b) => a.price - b.price).map(hair => {
@@ -223,7 +221,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
                   className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
                 >
                   <div className="relative inline-flex flex-col items-center mt-3">
-                    {hair.emoji && <span className="text-xl absolute -top-4 left-1/2 -translate-x-1/2 z-10">{hair.emoji}</span>}
+                    <HairOverlay hairId={hair.id} size="md" />
                     <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg"
                       style={{ ...avatarBgForPreview, ...fontStyleForPreview }}>
                       <span style={letterStyle}>{wallet.username?.[0]?.toUpperCase()}</span>

@@ -4,7 +4,7 @@ import { TrendingUp, Eye, EyeOff, Pencil, Check, X, Loader2 } from "lucide-react
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { getAvatarStyle, getLetterStyle, HAIRSTYLES } from "./avatarUtils";
+import { getAvatarStyle, getLetterStyle, HairOverlay } from "./avatarUtils";
 
 export default function BalanceCard({ wallet, onRefresh }) {
   const [hidden, setHidden] = useState(false);
@@ -44,11 +44,7 @@ export default function BalanceCard({ wallet, onRefresh }) {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
           <div className="relative flex flex-col items-center">
-            {wallet.avatar_hair && wallet.avatar_hair !== "none" && (
-              <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-xl z-10">
-                {HAIRSTYLES.find(h => h.id === wallet.avatar_hair)?.emoji}
-              </span>
-            )}
+            <HairOverlay hairId={wallet.avatar_hair} size="md" />
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-lg"
               style={getAvatarStyle(wallet)}

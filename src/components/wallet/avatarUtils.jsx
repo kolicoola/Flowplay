@@ -74,39 +74,255 @@ export function getLetterColorStyle(lcId) {
   return { color: found.color };
 }
 
-// Hairstyles (rendered as emoji/text overlay on top of avatar)
+// Cosmetic accessories - crowns, headwear, and decorative items
 export const HAIRSTYLES = [
-  { id: "none",        label: "None",             price: 0,    emoji: null },
-  { id: "short",       label: "Short Cut",         price: 80,   emoji: "🪒" },
-  { id: "medium",      label: "Medium",            price: 100,  emoji: "💇" },
-  { id: "long",        label: "Long Hair",         price: 150,  emoji: "👩" },
-  { id: "curly",       label: "Curly",             price: 200,  emoji: "🌀" },
-  { id: "wavy",        label: "Wavy",              price: 220,  emoji: "〰️" },
-  { id: "afro",        label: "Afro",              price: 300,  emoji: "🅰" },
-  { id: "bun",         label: "Bun",               price: 250,  emoji: "🔵" },
-  { id: "ponytail",    label: "Ponytail",          price: 280,  emoji: "🎗️" },
-  { id: "braids",      label: "Braids",            price: 350,  emoji: "🪢" },
-  { id: "mohawk",      label: "Mohawk",            price: 400,  emoji: "⬆️" },
-  { id: "spiky",       label: "Spiky",             price: 450,  emoji: "💥" },
-  { id: "dreads",      label: "Dreadlocks",        price: 500,  emoji: "🟫" },
-  { id: "silver",      label: "Silver Hair",       price: 600,  emoji: "🩶" },
-  { id: "golden",      label: "Golden Blonde",     price: 700,  emoji: "💛" },
-  { id: "redhead",     label: "Redhead",           price: 600,  emoji: "🔴" },
-  { id: "rainbow",     label: "Rainbow Hair",      price: 1000, emoji: "🌈" },
-  { id: "platinum",    label: "Platinum",          price: 1500, emoji: "⬜" },
-  { id: "top_hat",     label: "Top Hat",           price: 350,  emoji: "🎩" },
-  { id: "crown",       label: "Crown",             price: 800,  emoji: "👑" },
-  { id: "flower",      label: "Flower Crown",      price: 400,  emoji: "🌸" },
-  { id: "halo",        label: "Halo",              price: 600,  emoji: "😇" },
-  { id: "horns",       label: "Devil Horns",       price: 500,  emoji: "😈" },
-  { id: "wizard",      label: "Wizard Hat",        price: 450,  emoji: "🧙" },
-  { id: "cowboy",      label: "Cowboy Hat",        price: 300,  emoji: "🤠" },
-  { id: "santa",       label: "Santa Hat",         price: 250,  emoji: "🎅" },
-  { id: "cherry_b",    label: "Cherry Blossom",    price: 550,  emoji: "🌺" },
-  { id: "alien",       label: "Alien",             price: 700,  emoji: "👽" },
-  { id: "fire_top",    label: "Fire Head",         price: 900,  emoji: "🔥" },
-  { id: "star",        label: "Star Power",        price: 1200, emoji: "⭐" },
+  { id: "none", label: "None", price: 0, variant: "none", tone: "natural" },
+  { id: "headband", label: "Headband", price: 80, variant: "headband", tone: "pink" },
+  { id: "bandana", label: "Bandana", price: 100, variant: "bandana", tone: "red" },
+  { id: "cat_ears", label: "Cat Ears", price: 150, variant: "catEars", tone: "dark" },
+  { id: "bunny_ears", label: "Bunny Ears", price: 150, variant: "bunnyEars", tone: "pink" },
+  { id: "flower", label: "Flower Crown", price: 200, variant: "flower", tone: "pink" },
+  { id: "laurel", label: "Laurel Wreath", price: 250, variant: "laurel", tone: "green" },
+  { id: "party_hat", label: "Party Hat", price: 200, variant: "partyHat", tone: "rainbow" },
+  { id: "santa", label: "Santa Hat", price: 250, variant: "santa", tone: "red" },
+  { id: "cowboy", label: "Cowboy Hat", price: 300, variant: "cowboy", tone: "brown" },
+  { id: "top_hat", label: "Top Hat", price: 350, variant: "hatTop", tone: "dark" },
+  { id: "beret", label: "Beret", price: 300, variant: "beret", tone: "dark" },
+  { id: "bow", label: "Hair Bow", price: 250, variant: "bow", tone: "pink" },
+  { id: "tiara", label: "Tiara", price: 400, variant: "tiara", tone: "silver" },
+  { id: "wizard", label: "Wizard Hat", price: 450, variant: "wizard", tone: "violet" },
+  { id: "antlers", label: "Antlers", price: 400, variant: "antlers", tone: "brown" },
+  { id: "horns", label: "Devil Horns", price: 500, variant: "horns", tone: "red" },
+  { id: "cherry_b", label: "Cherry Blossom", price: 500, variant: "cherryBlossom", tone: "pink" },
+  { id: "halo", label: "Halo", price: 600, variant: "halo", tone: "golden" },
+  { id: "diadem", label: "Diadem", price: 700, variant: "diadem", tone: "silver" },
+  { id: "crown", label: "Royal Crown", price: 800, variant: "crown", tone: "golden" },
+  { id: "lunar", label: "Lunar Crown", price: 900, variant: "crown", tone: "silver" },
+  { id: "phoenix", label: "Phoenix Crest", price: 1000, variant: "phoenix", tone: "fire" },
+  { id: "cosmic", label: "Cosmic Crown", price: 1200, variant: "crown", tone: "rainbow" },
+  { id: "dragon", label: "Dragon Horns", price: 1500, variant: "dragonHorns", tone: "dark" },
+  { id: "celestial", label: "Celestial Halo", price: 1800, variant: "halo", tone: "rainbow" },
+  { id: "imperial", label: "Imperial Crown", price: 2000, variant: "imperialCrown", tone: "golden" },
+  { id: "divine", label: "Divine Radiance", price: 2500, variant: "divine", tone: "golden" },
+  { id: "void", label: "Void Crown", price: 3000, variant: "crown", tone: "dark" },
+  { id: "godmode", label: "God Crown", price: 5000, variant: "godCrown", tone: "rainbow" },
 ];
+
+function getHairToneStyle(tone) {
+  if (tone === "silver") return { background: "linear-gradient(180deg, #f1f5f9, #94a3b8)" };
+  if (tone === "golden") return { background: "linear-gradient(180deg, #facc15, #ca8a04)" };
+  if (tone === "red") return { background: "linear-gradient(180deg, #fb7185, #be123c)" };
+  if (tone === "rainbow") return { background: "linear-gradient(90deg, #ef4444, #f59e0b, #22c55e, #3b82f6, #a855f7)" };
+  if (tone === "platinum") return { background: "linear-gradient(180deg, #ffffff, #cbd5e1)" };
+  if (tone === "violet") return { background: "linear-gradient(180deg, #7c3aed, #4c1d95)" };
+  if (tone === "green") return { background: "linear-gradient(180deg, #86efac, #15803d)" };
+  if (tone === "fire") return { background: "linear-gradient(180deg, #fbbf24, #f97316, #dc2626)" };
+  if (tone === "dark") return { background: "linear-gradient(180deg, #334155, #0f172a)" };
+  if (tone === "pink") return { background: "linear-gradient(180deg, #fbcfe8, #ec4899)" };
+  if (tone === "brown") return { background: "linear-gradient(180deg, #d6a56f, #8b5a2b)" };
+  return { background: "linear-gradient(180deg, #7c4a2f, #3b2418)" };
+}
+
+export function getHairStyleMeta(hairId) {
+  return HAIRSTYLES.find(h => h.id === hairId) || HAIRSTYLES[0];
+}
+
+export function HairOverlay({ hairId, size = "md" }) {
+  const hair = getHairStyleMeta(hairId);
+  if (!hair || hair.variant === "none") return null;
+
+  const toneStyle = getHairToneStyle(hair.tone);
+  const scaleClass = size === "sm" ? "scale-90" : size === "lg" ? "scale-110" : "scale-100";
+  const baseShape = "absolute left-1/2 -translate-x-1/2 z-10";
+
+  // Headbands and simple accessories
+  if (hair.variant === "headband") {
+    return <span className={`${baseShape} -top-1 w-10 h-2 rounded-full ${scaleClass}`} style={toneStyle} />;
+  }
+
+  if (hair.variant === "bandana") {
+    return (
+      <>
+        <span className={`${baseShape} -top-2 w-10 h-3 rounded-sm ${scaleClass}`} style={toneStyle} />
+        <span className="absolute -right-1 top-0 w-2 h-3 rounded-r-full z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "bow") {
+    return (
+      <>
+        <span className="absolute -right-1 -top-2 w-3 h-3 rounded-full z-10" style={toneStyle} />
+        <span className="absolute right-1 -top-2 w-3 h-3 rounded-full z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "beret") {
+    return <span className={`${baseShape} -top-2.5 w-8 h-3 rounded-full ${scaleClass}`} style={toneStyle} />;
+  }
+
+  // Animal ears
+  if (hair.variant === "catEars") {
+    return (
+      <>
+        <span className="absolute -left-2 -top-4 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px] z-10" style={{ borderBottomColor: toneStyle.background || "#1e293b" }} />
+        <span className="absolute -right-2 -top-4 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px] z-10" style={{ borderBottomColor: toneStyle.background || "#1e293b" }} />
+      </>
+    );
+  }
+
+  if (hair.variant === "bunnyEars") {
+    return (
+      <>
+        <span className="absolute -left-1 -top-5 w-2 h-6 rounded-full z-10" style={toneStyle} />
+        <span className="absolute -right-1 -top-5 w-2 h-6 rounded-full z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "antlers") {
+    return (
+      <>
+        <span className="absolute -left-2 -top-4 w-1 h-5 rounded-sm z-10" style={toneStyle} />
+        <span className="absolute -left-3 -top-4 w-1 h-3 rounded-sm rotate-45 z-10" style={toneStyle} />
+        <span className="absolute -right-2 -top-4 w-1 h-5 rounded-sm z-10" style={toneStyle} />
+        <span className="absolute -right-3 -top-4 w-1 h-3 rounded-sm -rotate-45 z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  // Crowns and tiaras
+  if (hair.variant === "crown") {
+    return (
+      <>
+        <span className={`${baseShape} -top-3 w-10 h-4 rounded-sm ${scaleClass}`} style={toneStyle} />
+        <span className={`${baseShape} -top-4 w-2 h-2 rounded-full ${scaleClass}`} style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "tiara") {
+    return <span className={`${baseShape} -top-3 w-9 h-3 rounded-t-full ${scaleClass}`} style={toneStyle} />;
+  }
+
+  if (hair.variant === "diadem") {
+    return (
+      <>
+        <span className={`${baseShape} -top-2 w-10 h-2 rounded-full ${scaleClass}`} style={toneStyle} />
+        <span className={`${baseShape} -top-3 w-3 h-2 rounded-full ${scaleClass}`} style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "imperialCrown") {
+    return (
+      <>
+        <span className={`${baseShape} -top-3 w-11 h-5 rounded-t-md ${scaleClass}`} style={toneStyle} />
+        <span className="absolute -left-2 -top-4 w-2 h-2 rounded-full z-10" style={toneStyle} />
+        <span className={`${baseShape} -top-4.5 w-2 h-2 rounded-full z-10`} style={toneStyle} />
+        <span className="absolute -right-2 -top-4 w-2 h-2 rounded-full z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "godCrown") {
+    return (
+      <>
+        <span className={`${baseShape} -top-4 w-12 h-6 rounded-t-lg ${scaleClass}`} style={toneStyle} />
+        <span className="absolute -left-3 -top-5 w-3 h-3 rounded-full z-10 animate-pulse" style={toneStyle} />
+        <span className={`${baseShape} -top-6 w-3 h-3 rounded-full z-10 animate-pulse`} style={toneStyle} />
+        <span className="absolute -right-3 -top-5 w-3 h-3 rounded-full z-10 animate-pulse" style={toneStyle} />
+      </>
+    );
+  }
+
+  // Halos
+  if (hair.variant === "halo") {
+    return <span className={`${baseShape} -top-4 w-10 h-2 rounded-full border-2 bg-transparent ${scaleClass}`} style={{ borderColor: toneStyle.background || "#fbbf24" }} />;
+  }
+
+  // Horns
+  if (hair.variant === "horns") {
+    return (
+      <>
+        <span className="absolute -left-2 -top-3 w-2 h-4 rounded-tl-full rounded-tr-sm z-10" style={toneStyle} />
+        <span className="absolute -right-2 -top-3 w-2 h-4 rounded-tr-full rounded-tl-sm z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "dragonHorns") {
+    return (
+      <>
+        <span className="absolute -left-2 -top-4 w-3 h-5 rounded-tl-full rounded-br-md z-10" style={toneStyle} />
+        <span className="absolute -right-2 -top-4 w-3 h-5 rounded-tr-full rounded-bl-md z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  // Hats
+  if (hair.variant === "hatTop") {
+    return <span className={`${baseShape} -top-4 w-10 h-5 rounded-t-md rounded-b-sm ${scaleClass}`} style={toneStyle} />;
+  }
+
+  if (hair.variant === "partyHat") {
+    return <span className={`${baseShape} -top-5 w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-b-[20px] ${scaleClass}`} style={{ borderBottomColor: toneStyle.background || "#3b82f6" }} />;
+  }
+
+  if (hair.variant === "wizard") {
+    return <span className={`${baseShape} -top-5 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[20px] border-b-violet-700 ${scaleClass}`} />;
+  }
+
+  if (hair.variant === "cowboy") {
+    return <span className={`${baseShape} -top-3 w-11 h-4 rounded-full ${scaleClass}`} style={toneStyle} />;
+  }
+
+  if (hair.variant === "santa") {
+    return <span className={`${baseShape} -top-3 w-10 h-4 rounded-t-full rounded-b-sm bg-red-600 ${scaleClass}`} />;
+  }
+
+  // Flowers and nature
+  if (hair.variant === "flower") {
+    return <span className={`${baseShape} -top-3 w-10 h-3 rounded-full ${scaleClass}`} style={toneStyle} />;
+  }
+
+  if (hair.variant === "cherryBlossom") {
+    return (
+      <>
+        <span className={`${baseShape} -top-3 w-10 h-3 rounded-full ${scaleClass}`} style={toneStyle} />
+        <span className="absolute -left-1 -top-2 w-2 h-2 rounded-full z-10" style={toneStyle} />
+        <span className="absolute -right-1 -top-2 w-2 h-2 rounded-full z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "laurel") {
+    return <span className={`${baseShape} -top-2 w-11 h-3 rounded-full ${scaleClass}`} style={toneStyle} />;
+  }
+
+  // Special effects
+  if (hair.variant === "phoenix") {
+    return (
+      <>
+        <span className={`${baseShape} -top-4 w-8 h-5 rounded-t-full ${scaleClass}`} style={toneStyle} />
+        <span className="absolute -left-3 -top-3 w-2 h-4 rounded-tl-full z-10" style={toneStyle} />
+        <span className="absolute -right-3 -top-3 w-2 h-4 rounded-tr-full z-10" style={toneStyle} />
+      </>
+    );
+  }
+
+  if (hair.variant === "divine") {
+    return (
+      <>
+        <span className={`${baseShape} -top-4 w-11 h-3 rounded-full animate-pulse ${scaleClass}`} style={toneStyle} />
+        <span className={`${baseShape} -top-5 w-10 h-2 rounded-full border-2 bg-transparent animate-pulse ${scaleClass}`} style={{ borderColor: toneStyle.background || "#fbbf24" }} />
+      </>
+    );
+  }
+
+  return <span className={`${baseShape} -top-2 w-9 h-3 rounded-full ${scaleClass}`} style={toneStyle} />;
+}
 
 // Site backgrounds (full page background)
 export const SITE_BACKGROUNDS = [
