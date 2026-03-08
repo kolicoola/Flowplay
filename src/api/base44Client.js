@@ -12,6 +12,7 @@ const ENTITY_NAMES = [
 ];
 
 const listeners = new Map();
+let initializedStorageSync = false;
 
 const getId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -67,8 +68,65 @@ const sortRecords = (records, sortBy) => {
 const notify = (entity, operation, record) => {
   const cbs = listeners.get(entity);
   if (!cbs) return;
-  const event = { operation, record };
+  const event = {
+    entity,
+    operation,
+    record,
+    // Backward-compatible aliases used by some components.
+    type: operation,
+    data: record,
+  };
   for (const cb of cbs) cb(event);
+};
+
+const indexById = (list) => {
+  const map = new Map();
+  for (const item of list || []) {
+    if (item?.id) map.set(item.id, item);
+  }
+  return map;
+};
+
+const shallowDiffers = (a, b) => {
+  if (a === b) return false;
+  if (!a || !b) return true;
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return true;
+  for (const key of aKeys) {
+    if (a[key] !== b[key]) return true;
+  }
+  return false;
+};
+
+const setupStorageSync = () => {
+  if (initializedStorageSync || typeof window === "undefined") return;
+  initializedStorageSync = true;
+  window.addEventListener("storage", (event) => {
+    if (event.key !== DB_KEY) return;
+    let oldDb;
+    let newDb;
+    try {
+      oldDb = event.oldValue ? JSON.parse(event.oldValue) : initEmptyDb();
+      newDb = event.newValue ? JSON.parse(event.newValue) : initEmptyDb();
+    } catch {
+      return;
+    }
+
+    for (const entity of ENTITY_NAMES) {
+      const oldMap = indexById(oldDb?.[entity] || []);
+      const newMap = indexById(newDb?.[entity] || []);
+
+      for (const [id, next] of newMap.entries()) {
+        if (!oldMap.has(id)) notify(entity, "create", next);
+        else if (shallowDiffers(oldMap.get(id), next)) notify(entity, "update", next);
+      }
+
+      for (const [id, prev] of oldMap.entries()) {
+        if (!newMap.has(id)) notify(entity, "delete", prev);
+      }
+    }
+  });
 };
 
 const matchesFilter = (record, criteria = {}) => {
@@ -121,6 +179,7 @@ const entityApi = (entity) => ({
   },
 
   subscribe: (callback) => {
+    setupStorageSync();
     if (!listeners.has(entity)) listeners.set(entity, new Set());
     listeners.get(entity).add(callback);
     return () => listeners.get(entity)?.delete(callback);

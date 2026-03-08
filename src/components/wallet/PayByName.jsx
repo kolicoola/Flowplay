@@ -17,6 +17,18 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
   const [searching, setSearching] = useState(false);
   const [sending, setSending] = useState(false);
 
+  React.useEffect(() => {
+    if (!open) return;
+    const preload = async () => {
+      setSearching(true);
+      const allWallets = await base44.entities.Wallet.list();
+      const filtered = allWallets.filter((w) => w.id !== wallet.id);
+      setResults(filtered.slice(0, 20));
+      setSearching(false);
+    };
+    preload();
+  }, [open, wallet.id]);
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);

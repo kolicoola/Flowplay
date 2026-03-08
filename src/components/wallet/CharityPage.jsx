@@ -221,6 +221,16 @@ export default function CharityPage({ wallet, onClose, onRefresh, isDevMode }) {
 
   useEffect(() => { fetchCharities(); }, []);
 
+  useEffect(() => {
+    const unsub = base44.entities.Charity.subscribe((event) => {
+      const type = event?.type || event?.operation;
+      if (type === "create" || type === "update" || type === "delete") {
+        fetchCharities();
+      }
+    });
+    return () => unsub?.();
+  }, []);
+
   const handleDoneDonate = async () => {
     setDonatingTo(null);
     await onRefresh();

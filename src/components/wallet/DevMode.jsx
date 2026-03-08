@@ -21,6 +21,15 @@ export default function DevMode({ wallet, onRefresh }) {
   const [deletingId, setDeletingId] = useState(null);
   const [customAmount, setCustomAmount] = useState("");
 
+  React.useEffect(() => {
+    if (!open) return;
+    fetchAllWallets();
+    const unsub = base44.entities.Wallet.subscribe(() => {
+      fetchAllWallets();
+    });
+    return () => unsub?.();
+  }, [open, wallet.id]);
+
   const fetchAllWallets = async () => {
     setLoadingWallets(true);
     const all = await base44.entities.Wallet.list();
@@ -82,6 +91,18 @@ export default function DevMode({ wallet, onRefresh }) {
   };
 
   const cancelEdit = () => { setEditingId(null); setEditField(null); setNewName(""); setNewBalance(""); };
+
+  const handleCreateTestUser = async () => {
+    const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+    const username = `Test_${suffix}`;
+    await base44.entities.Wallet.create({
+      username,
+      balance: 1000,
+      avatar_color: "#6366f1",
+    });
+    toast.success(`Created ${username}`);
+    await fetchAllWallets();
+  };
 
   return (
     <motion.div
@@ -149,6 +170,12 @@ export default function DevMode({ wallet, onRefresh }) {
               {/* Manage Users */}
               <div>
                 <p className="text-green-300/70 text-xs font-mono mb-3 uppercase tracking-widest">⚙ Manage All Users</p>
+                <button
+                  onClick={handleCreateTestUser}
+                  className="mb-3 w-full py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 font-mono text-xs font-bold transition-colors"
+                >
+                  + Create Test User
+                </button>
                 {loadingWallets ? (
                   <div className="flex justify-center py-4">
                     <Loader2 className="w-5 h-5 text-green-400 animate-spin" />

@@ -94,8 +94,10 @@ export default function CoinFlipPage({ wallet, onClose, onRefresh }) {
   // Subscribe so creator sees animation when someone joins their flip
   useEffect(() => {
     const unsub = base44.entities.CoinFlip.subscribe((event) => {
-      if (event.type === "update" && event.data?.status === "completed") {
-        const flip = event.data;
+      const type = event?.type || event?.operation;
+      const data = event?.data || event?.record;
+      if (type === "update" && data?.status === "completed") {
+        const flip = data;
         // Only show animation if this is our flip and we haven't seen it yet
         if (flip.creator_wallet_id === wallet.id && watchedFlipRef.current === flip.id) {
           watchedFlipRef.current = null;
@@ -105,7 +107,7 @@ export default function CoinFlipPage({ wallet, onClose, onRefresh }) {
           onRefresh();
         }
       }
-      if (event.type === "create" || event.type === "update" || event.type === "delete") {
+      if (type === "create" || type === "update" || type === "delete") {
         loadData();
       }
     });
