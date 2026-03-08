@@ -77,7 +77,7 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, ownedUpgrades,
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-yellow-400" />
-            <h2 className="text-white font-bold text-lg">Upgrade Shop - Beta</h2>
+            <h2 className="text-white font-bold text-lg">Upgrade Shop</h2>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-slate-400 text-sm font-mono">$<span className="text-white font-bold">{balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>

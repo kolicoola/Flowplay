@@ -25,8 +25,15 @@ export default function WelcomeScreen({ onComplete }) {
       return;
     }
     setLoading(true);
-    const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-    await onComplete(trimmed, color);
+    try {
+      const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+      await onComplete(trimmed, color);
+    } catch (e) {
+      const message = e?.message || "Could not create wallet. Check your Base44 config and try again.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
