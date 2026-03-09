@@ -4,36 +4,15 @@ import { Wallet, ArrowRight, LogIn, UserPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
-
-const ACCOUNTS_KEY = "flowplay_local_accounts_v1";
-
-const readAccounts = () => {
-  try {
-    const raw = localStorage.getItem(ACCOUNTS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const writeAccounts = (accounts) => {
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-};
+import { supabase } from "@/lib/supabaseClient";
 
 const normalize = (value) => value.trim().toLowerCase();
-const BACKEND_MODE = (import.meta.env.VITE_BACKEND_MODE || "base44").toLowerCase();
-const IS_REMOTE = BACKEND_MODE === "base44";
-
-const toUsernameKey = (name) => normalize(name).replace(/[^a-z0-9._-]/g, "");
 const isEmailLike = (value) => /.+@.+\..+/.test(value.trim());
-const isAlreadyExistsError = (message) => {
-  const msg = String(message || "").toLowerCase();
-  return msg.includes("already") || msg.includes("exist") || msg.includes("registered");
-};
-const isInvalidCredentialsError = (message) => {
-  const msg = String(message || "").toLowerCase();
-  return msg.includes("invalid") || msg.includes("password") || msg.includes("credential");
+
+const getAuthRedirectUrl = () => {
+  const base = window.location.origin;
+  const appBase = import.meta.env.BASE_URL || "/";
+  return `${base}${appBase}`;
 };
 
 export default function AuthScreen({ onAuthenticated }) {
@@ -47,94 +26,35 @@ export default function AuthScreen({ onAuthenticated }) {
 
   const title = useMemo(() => (mode === "login" ? "Sign In" : "Create Account"), [mode]);
 
-  const getCandidateEmails = (nameOrEmail) => {
-    const input = nameOrEmail.trim();
-    if (!input) return [];
-    if (isEmailLike(input)) return [normalize(input)];
+  const ensureWalletForUser = async (userId, desiredUsername) => {
+    const allWallets = await base44.entities.Wallet.list();
+    let wallet = allWallets.find((w) => w.auth_user_id === userId);
 
-    const key = toUsernameKey(input) || "user";
-    const legacyKey = normalize(input).replace(/\s+/g, "") || key;
-    const candidates = [
-      `${key}@flowplay.app`,
-      `${key}@flowplay-user.com`,
-      `${legacyKey}@flowplay.app`,
-      `${legacyKey}@flowplay-user.com`,
-    ];
-
-    return [...new Set(candidates)];
-  };
-
-  const loginWithCandidates = async (nameOrEmail, plainPassword) => {
-    const candidates = getCandidateEmails(nameOrEmail);
-    let lastError = null;
-
-    for (const email of candidates) {
-      try {
-        await base44.auth.loginViaEmailPassword(email, plainPassword);
-        return email;
-      } catch (e) {
-        lastError = e;
-      }
+    if (!wallet) {
+      const avatarPalette = ["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#22c55e", "#06b6d4"];
+      const avatarColor = avatarPalette[Math.floor(Math.random() * avatarPalette.length)];
+      wallet = await base44.entities.Wallet.create({
+        username: desiredUsername,
+        auth_user_id: userId,
+        balance: 1000,
+        avatar_color: avatarColor,
+      });
+    } else if (desiredUsername && wallet.username !== desiredUsername) {
+      wallet = await base44.entities.Wallet.update(wallet.id, { username: desiredUsername });
     }
 
-    throw lastError || new Error("Invalid email or password");
+    return wallet;
   };
 
   const handleLogin = async () => {
-    if (IS_REMOTE) {
-      const cleanName = username.trim();
-      const cleanEmail = email.trim();
-      if ((!cleanName && !cleanEmail) || !password) {
-        setError("Enter email (or username) and password");
-        return;
-      }
-      if (cleanEmail && !isEmailLike(cleanEmail)) {
-        setError("Enter a valid email address");
-        return;
-      }
-
-      setLoading(true);
-      setError("");
-      setNotice("");
-      try {
-        if (cleanEmail) {
-          await base44.auth.loginViaEmailPassword(normalize(cleanEmail), password);
-        } else {
-          await loginWithCandidates(cleanName, password);
-        }
-        const me = await base44.auth.me();
-        const allWallets = await base44.entities.Wallet.list();
-        let wallet = allWallets.find((w) => w.auth_user_id === me.id);
-
-        if (!wallet) {
-          const avatarPalette = ["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#22c55e", "#06b6d4"];
-          const avatarColor = avatarPalette[Math.floor(Math.random() * avatarPalette.length)];
-          const derivedName = cleanName;
-          wallet = await base44.entities.Wallet.create({
-            username: derivedName,
-            auth_user_id: me.id,
-            balance: 1000,
-            avatar_color: avatarColor,
-          });
-        }
-
-        await onAuthenticated(wallet);
-      } catch (e) {
-        const msg = String(e?.message || "");
-        if (isInvalidCredentialsError(msg)) {
-          setError("Invalid username or password");
-        } else {
-          setError(msg || "Could not sign in. Please try again.");
-        }
-      } finally {
-        setLoading(false);
-      }
+    const cleanEmail = normalize(email);
+    const cleanName = username.trim();
+    if (!cleanEmail || !password) {
+      setError("Enter email and password");
       return;
     }
-
-    const cleanName = username.trim();
-    if (!cleanName || !password) {
-      setError("Enter username and password");
+    if (!isEmailLike(cleanEmail)) {
+      setError("Enter a valid email address");
       return;
     }
 
@@ -142,130 +62,46 @@ export default function AuthScreen({ onAuthenticated }) {
     setError("");
     setNotice("");
     try {
-      const accounts = readAccounts();
-      const account = accounts.find((a) => a.usernameLower === normalize(cleanName));
-      if (!account || account.password !== password) {
-        setError("Invalid username or password");
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+      if (signInError) throw signInError;
+
+      const user = data?.user;
+      if (!user) throw new Error("Could not read signed-in user.");
+      if (!user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        setError("Verify your email before signing in.");
         return;
       }
 
-      const wallets = await base44.entities.Wallet.list();
-      const wallet = wallets.find((w) => w.id === account.walletId);
-      if (!wallet) {
-        setError("Account exists, but wallet was not found. Create a new account.");
-        return;
-      }
-
+      const wallet = await ensureWalletForUser(user.id, cleanName || cleanEmail.split("@")[0]);
       await onAuthenticated(wallet);
-    } catch {
-      setError("Could not sign in. Please try again.");
+    } catch (e) {
+      setError(String(e?.message || "Could not sign in. Please try again."));
     } finally {
       setLoading(false);
     }
   };
 
   const handleRegister = async () => {
-    if (IS_REMOTE) {
-      const cleanName = username.trim();
-      const cleanEmail = email.trim();
-      if (cleanName.length < 2) {
-        setError("Username must be at least 2 characters");
-        return;
-      }
-      if (!cleanEmail) {
-        setError("Email is required");
-        return;
-      }
-      if (!isEmailLike(cleanEmail)) {
-        setError("Enter a valid email address");
-        return;
-      }
-      if (password.length < 4) {
-        setError("Password must be at least 4 characters");
-        return;
-      }
-
-      setLoading(true);
-      setError("");
-      setNotice("");
-      try {
-        const candidates = [normalize(cleanEmail)];
-        let loggedIn = false;
-        let lastError = null;
-        let createdAccount = false;
-
-        for (const email of candidates) {
-          try {
-            await base44.auth.register({ email, password });
-            createdAccount = true;
-            await base44.auth.loginViaEmailPassword(email, password);
-            loggedIn = true;
-            break;
-          } catch (e) {
-            lastError = e;
-            if (isAlreadyExistsError(e?.message)) {
-              try {
-                await base44.auth.loginViaEmailPassword(email, password);
-                loggedIn = true;
-                break;
-              } catch (loginError) {
-                lastError = loginError;
-              }
-            }
-          }
-        }
-
-        if (!loggedIn) {
-          throw lastError || new Error("Could not create account");
-        }
-
-        if (createdAccount) {
-          try {
-            await base44.auth.resendOtp(normalize(cleanEmail));
-            setNotice("Verification code sent to your email.");
-          } catch {
-            // Some apps auto-verify or have OTP disabled; ignore silently.
-          }
-        }
-
-        const me = await base44.auth.me();
-        const allWallets = await base44.entities.Wallet.list();
-        let wallet = allWallets.find((w) => w.auth_user_id === me.id);
-
-        if (!wallet) {
-          const avatarPalette = ["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#22c55e", "#06b6d4"];
-          const avatarColor = avatarPalette[Math.floor(Math.random() * avatarPalette.length)];
-          wallet = await base44.entities.Wallet.create({
-            username: cleanName,
-            auth_user_id: me.id,
-            balance: 1000,
-            avatar_color: avatarColor,
-          });
-        } else if (wallet.username !== cleanName) {
-          wallet = await base44.entities.Wallet.update(wallet.id, { username: cleanName });
-        }
-
-        await onAuthenticated(wallet);
-      } catch (e) {
-        const msg = String(e?.message || "");
-        if (isInvalidCredentialsError(msg)) {
-          setError("That username already exists with a different password. Try Sign In.");
-        } else {
-          setError(msg || "Could not create account. Please try again.");
-        }
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
     const cleanName = username.trim();
+    const cleanEmail = normalize(email);
     if (cleanName.length < 2) {
       setError("Username must be at least 2 characters");
       return;
     }
-    if (password.length < 4) {
-      setError("Password must be at least 4 characters");
+    if (!cleanEmail) {
+      setError("Email is required");
+      return;
+    }
+    if (!isEmailLike(cleanEmail)) {
+      setError("Enter a valid email address");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
       return;
     }
 
@@ -273,41 +109,20 @@ export default function AuthScreen({ onAuthenticated }) {
     setError("");
     setNotice("");
     try {
-      const accounts = readAccounts();
-      const key = normalize(cleanName);
-      if (accounts.some((a) => a.usernameLower === key)) {
-        setError("That username is already registered");
-        return;
-      }
-
-      const wallets = await base44.entities.Wallet.list();
-      let wallet = wallets.find((w) => normalize(w.username || "") === key);
-
-      if (!wallet) {
-        const avatarPalette = ["#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#22c55e", "#06b6d4"];
-        const avatarColor = avatarPalette[Math.floor(Math.random() * avatarPalette.length)];
-        wallet = await base44.entities.Wallet.create({
-          username: cleanName,
-          balance: 1000,
-          avatar_color: avatarColor,
-        });
-      }
-
-      const next = [
-        ...accounts,
-        {
-          id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
-          username: cleanName,
-          usernameLower: key,
-          password,
-          walletId: wallet.id,
-          created_date: new Date().toISOString(),
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: { username: cleanName },
+          emailRedirectTo: getAuthRedirectUrl(),
         },
-      ];
-      writeAccounts(next);
-      await onAuthenticated(wallet);
-    } catch {
-      setError("Could not create account. Please try again.");
+      });
+      if (signUpError) throw signUpError;
+
+      setNotice("Check your email and click the verification link. Then sign in.");
+      setMode("login");
+    } catch (e) {
+      setError(String(e?.message || "Could not create account. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -319,13 +134,9 @@ export default function AuthScreen({ onAuthenticated }) {
   };
 
   const handleSendVerificationEmail = async () => {
-    const cleanEmail = email.trim();
-    if (!cleanEmail) {
-      setError("Enter your email first");
-      return;
-    }
-    if (!isEmailLike(cleanEmail)) {
-      setError("Enter a valid email address");
+    const cleanEmail = normalize(email);
+    if (!cleanEmail || !isEmailLike(cleanEmail)) {
+      setError("Enter a valid email address first");
       return;
     }
 
@@ -333,7 +144,12 @@ export default function AuthScreen({ onAuthenticated }) {
     setError("");
     setNotice("");
     try {
-      await base44.auth.resendOtp(normalize(cleanEmail));
+      const { error: otpError } = await supabase.auth.resend({
+        type: "signup",
+        email: cleanEmail,
+        options: { emailRedirectTo: getAuthRedirectUrl() },
+      });
+      if (otpError) throw otpError;
       setNotice("Verification email sent. Check inbox/spam.");
     } catch (e) {
       setError(String(e?.message || "Could not send verification email"));
@@ -343,13 +159,9 @@ export default function AuthScreen({ onAuthenticated }) {
   };
 
   const handleSendResetEmail = async () => {
-    const cleanEmail = email.trim();
-    if (!cleanEmail) {
-      setError("Enter your email first");
-      return;
-    }
-    if (!isEmailLike(cleanEmail)) {
-      setError("Enter a valid email address");
+    const cleanEmail = normalize(email);
+    if (!cleanEmail || !isEmailLike(cleanEmail)) {
+      setError("Enter a valid email address first");
       return;
     }
 
@@ -357,7 +169,10 @@ export default function AuthScreen({ onAuthenticated }) {
     setError("");
     setNotice("");
     try {
-      await base44.auth.resetPasswordRequest(normalize(cleanEmail));
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: getAuthRedirectUrl(),
+      });
+      if (resetError) throw resetError;
       setNotice("Password reset email sent. Check inbox/spam.");
     } catch (e) {
       setError(String(e?.message || "Could not send password reset email"));

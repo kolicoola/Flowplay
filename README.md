@@ -1,8 +1,8 @@
-**Welcome to your Base44 project** 
+**Welcome to PayFlow**
 
 **About**
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+This app now uses Supabase Auth for email verification.
 
 This project contains everything you need to run your app locally.
 
@@ -18,22 +18,24 @@ Any change pushed to the repo will also be reflected in the Base44 Builder.
 4. Create an `.env.local` file and set the right environment variables
 
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
+VITE_BACKEND_MODE=local
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+VITE_BACKEND_MODE=local
+VITE_SUPABASE_URL=https://xyzcompany.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
 ```
+
+5. In Supabase Auth settings, enable Email confirmations.
 
 Run the app: `npm run dev`
 
 **Publish your changes**
 
-Open [Base44.com](http://Base44.com) and click on Publish.
+Push to `main`; GitHub Pages deploys automatically via workflow.
 
 **Docs & Support**
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+Supabase Auth docs: [https://supabase.com/docs/guides/auth](https://supabase.com/docs/guides/auth)
