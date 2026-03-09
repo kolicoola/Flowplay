@@ -4,7 +4,7 @@ import { Wallet, ArrowRight, LogIn, UserPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, isSupabaseConfigured, supabaseConfigError } from "@/lib/supabaseClient";
 
 const normalize = (value) => value.trim().toLowerCase();
 const isEmailLike = (value) => /.+@.+\..+/.test(value.trim());
@@ -47,6 +47,11 @@ export default function AuthScreen({ onAuthenticated }) {
   };
 
   const handleLogin = async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      setError(supabaseConfigError);
+      return;
+    }
+
     const cleanEmail = normalize(email);
     const cleanName = username.trim();
     if (!cleanEmail || !password) {
@@ -79,13 +84,23 @@ export default function AuthScreen({ onAuthenticated }) {
       const wallet = await ensureWalletForUser(user.id, cleanName || cleanEmail.split("@")[0]);
       await onAuthenticated(wallet);
     } catch (e) {
-      setError(String(e?.message || "Could not sign in. Please try again."));
+      const msg = String(e?.message || "");
+      if (msg.toLowerCase().includes("failed to fetch")) {
+        setError("Network/auth server error. Check internet and Supabase project URL.");
+      } else {
+        setError(msg || "Could not sign in. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleRegister = async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      setError(supabaseConfigError);
+      return;
+    }
+
     const cleanName = username.trim();
     const cleanEmail = normalize(email);
     if (cleanName.length < 2) {
@@ -119,10 +134,15 @@ export default function AuthScreen({ onAuthenticated }) {
       });
       if (signUpError) throw signUpError;
 
-      setNotice("Check your email and click the verification link. Then sign in.");
+      setNotice("Verification email sent automatically. Check inbox/spam, then sign in.");
       setMode("login");
     } catch (e) {
-      setError(String(e?.message || "Could not create account. Please try again."));
+      const msg = String(e?.message || "");
+      if (msg.toLowerCase().includes("failed to fetch")) {
+        setError("Network/auth server error. Check internet and Supabase project URL.");
+      } else {
+        setError(msg || "Could not create account. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -131,54 +151,6 @@ export default function AuthScreen({ onAuthenticated }) {
   const handleSubmit = () => {
     if (mode === "login") return handleLogin();
     return handleRegister();
-  };
-
-  const handleSendVerificationEmail = async () => {
-    const cleanEmail = normalize(email);
-    if (!cleanEmail || !isEmailLike(cleanEmail)) {
-      setError("Enter a valid email address first");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setNotice("");
-    try {
-      const { error: otpError } = await supabase.auth.resend({
-        type: "signup",
-        email: cleanEmail,
-        options: { emailRedirectTo: getAuthRedirectUrl() },
-      });
-      if (otpError) throw otpError;
-      setNotice("Verification email sent. Check inbox/spam.");
-    } catch (e) {
-      setError(String(e?.message || "Could not send verification email"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendResetEmail = async () => {
-    const cleanEmail = normalize(email);
-    if (!cleanEmail || !isEmailLike(cleanEmail)) {
-      setError("Enter a valid email address first");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setNotice("");
-    try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: getAuthRedirectUrl(),
-      });
-      if (resetError) throw resetError;
-      setNotice("Password reset email sent. Check inbox/spam.");
-    } catch (e) {
-      setError(String(e?.message || "Could not send password reset email"));
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -256,27 +228,6 @@ export default function AuthScreen({ onAuthenticated }) {
               </>
             )}
           </Button>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSendVerificationEmail}
-              disabled={loading}
-              className="h-10 border-white/15 text-slate-200 hover:bg-white/10"
-            >
-              Send Verification Email
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSendResetEmail}
-              disabled={loading}
-              className="h-10 border-white/15 text-slate-200 hover:bg-white/10"
-            >
-              Send Reset Email
-            </Button>
-          </div>
 
           <button
             onClick={() => {

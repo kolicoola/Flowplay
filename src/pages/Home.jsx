@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { getSiteBgStyle } from "../components/wallet/avatarUtils";
@@ -60,11 +60,13 @@ export default function Home() {
       let found = savedId ? all.find((w) => w.id === savedId) : null;
 
       if (!found) {
-        const { data } = await supabase.auth.getUser();
-        const authUserId = data?.user?.id;
-        if (authUserId) {
-          found = all.find((w) => w.auth_user_id === authUserId) || null;
-          if (found) localStorage.setItem(WALLET_ID_KEY, found.id);
+        if (isSupabaseConfigured && supabase) {
+          const { data } = await supabase.auth.getUser();
+          const authUserId = data?.user?.id;
+          if (authUserId) {
+            found = all.find((w) => w.auth_user_id === authUserId) || null;
+            if (found) localStorage.setItem(WALLET_ID_KEY, found.id);
+          }
         }
       }
 
