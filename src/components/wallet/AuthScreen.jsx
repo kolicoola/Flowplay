@@ -26,6 +26,12 @@ export default function AuthScreen({ onAuthenticated }) {
 
   const title = useMemo(() => (mode === "login" ? "Sign In" : "Create Account"), [mode]);
 
+  React.useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setError(supabaseConfigError);
+    }
+  }, []);
+
   const ensureWalletForUser = async (userId, desiredUsername) => {
     const allWallets = await base44.entities.Wallet.list();
     let wallet = allWallets.find((w) => w.auth_user_id === userId);
