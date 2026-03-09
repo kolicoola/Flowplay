@@ -41,42 +41,66 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
   };
 
   const handlePay = async () => {
+    if (!selectedUser?.id) {
+      toast.error("Choose a recipient first");
+      return;
+    }
+
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) {
       toast.error("Enter a valid amount");
       return;
     }
-    if (amt > wallet.balance) {
-      toast.error("Insufficient balance");
-      return;
-    }
+
     setSending(true);
+    try {
+      // Pull fresh balances before sending to avoid stale-state overwrites.
+      const allWallets = await base44.entities.Wallet.list();
+      const senderWallet = allWallets.find((w) => w.id === wallet.id);
+      const recipientWallet = allWallets.find((w) => w.id === selectedUser.id);
 
-    await base44.entities.Transaction.create({
-      from_wallet_id: wallet.id,
-      to_wallet_id: selectedUser.id,
-      from_username: wallet.username,
-      to_username: selectedUser.username,
-      amount: amt,
-      note: note.trim() || undefined,
-    });
+      if (!senderWallet) {
+        throw new Error("Your wallet was not found. Please sign in again.");
+      }
+      if (!recipientWallet) {
+        throw new Error("Recipient wallet was not found.");
+      }
+      if (amt > (senderWallet.balance || 0)) {
+        toast.error("Insufficient balance");
+        return;
+      }
 
-    await base44.entities.Wallet.update(wallet.id, {
-      balance: wallet.balance - amt,
-    });
-    await base44.entities.Wallet.update(selectedUser.id, {
-      balance: (selectedUser.balance || 0) + amt,
-    });
+      await base44.entities.Transaction.create({
+        from_wallet_id: senderWallet.id,
+        to_wallet_id: recipientWallet.id,
+        from_username: senderWallet.username,
+        to_username: recipientWallet.username,
+        amount: amt,
+        note: note.trim() || undefined,
+      });
 
-    setSending(false);
-    toast.success(`Sent $${amt.toFixed(2)} to ${selectedUser.username}`);
-    setSearchQuery("");
-    setResults([]);
-    setSelectedUser(null);
-    setAmount("");
-    setNote("");
-    onOpenChange(false);
-    onPaymentComplete();
+      await base44.entities.Wallet.update(senderWallet.id, {
+        balance: (senderWallet.balance || 0) - amt,
+      });
+      await base44.entities.Wallet.update(recipientWallet.id, {
+        balance: (recipientWallet.balance || 0) + amt,
+      });
+
+      toast.success(`Sent $${amt.toFixed(2)} to ${recipientWallet.username}`);
+      setSearchQuery("");
+      setResults([]);
+      setSelectedUser(null);
+      setAmount("");
+      setNote("");
+      onOpenChange(false);
+      await onPaymentComplete();
+    } catch (e) {
+      const message = String(e?.message || "Could not send payment");
+      toast.error(message);
+      console.error("Payment failed:", e);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleClose = () => {
