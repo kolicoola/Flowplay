@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabaseClient";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { getSiteBgStyle } from "../components/wallet/avatarUtils";
@@ -50,14 +51,23 @@ export default function Home() {
   const loadWallet = async () => {
     try {
       const savedId = localStorage.getItem(WALLET_ID_KEY);
-      if (!savedId) { setLoading(false); return; }
-
       const all = await withTimeout(
         base44.entities.Wallet.list(),
         STARTUP_TIMEOUT_MS,
         "Wallet bootstrap timed out"
       );
-      const found = all.find((w) => w.id === savedId);
+
+      let found = savedId ? all.find((w) => w.id === savedId) : null;
+
+      if (!found) {
+        const { data } = await supabase.auth.getUser();
+        const authUserId = data?.user?.id;
+        if (authUserId) {
+          found = all.find((w) => w.auth_user_id === authUserId) || null;
+          if (found) localStorage.setItem(WALLET_ID_KEY, found.id);
+        }
+      }
+
       if (found) {
         setMyWallet(found);
         walletRef.current = found;

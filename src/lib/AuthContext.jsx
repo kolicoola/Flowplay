@@ -1,18 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabaseClient';
 
 const AuthContext = createContext();
-const BYPASS_AUTH = (import.meta.env.VITE_BASE44_BYPASS_AUTH ?? 'false') === 'true';
+const BYPASS_AUTH = (import.meta.env.VITE_AUTH_BYPASS ?? 'false') === 'true';
 const GUEST_USER = { id: 'guest-user', name: 'Guest User' };
-const AUTH_TIMEOUT_MS = 5000;
-
-function withTimeout(promise, ms, message) {
-  let timeoutId;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(message)), ms);
-  });
-  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
-}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -46,8 +37,8 @@ export const AuthProvider = ({ children }) => {
 
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
-      const currentUser = await withTimeout(base44.auth.me(), AUTH_TIMEOUT_MS, 'Auth lookup timed out');
-      setUser(currentUser);
+      const { data } = await supabase.auth.getUser();
+      setUser(data?.user || GUEST_USER);
       setIsAuthenticated(true);
       setAuthError(null);
       setIsLoadingAuth(false);
@@ -62,16 +53,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
+    void shouldRedirect;
     setUser(null);
     setIsAuthenticated(false);
-    
-    if (shouldRedirect) {
-      // Use the SDK's logout method which handles token cleanup and redirect
-      base44.auth.logout(window.location.href);
-    } else {
-      // Just remove the token without redirect
-      base44.auth.logout();
-    }
+    supabase.auth.signOut();
   };
 
   const navigateToLogin = () => {
