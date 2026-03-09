@@ -93,6 +93,8 @@ export default function AuthScreen({ onAuthenticated }) {
       const msg = String(e?.message || "");
       if (msg.toLowerCase().includes("failed to fetch")) {
         setError("Network/auth server error. Check internet and Supabase project URL.");
+      } else if (msg.includes("Unexpected token '<'")) {
+        setError("Auth config is wrong: VITE_SUPABASE_URL must be your Supabase Project URL (https://...supabase.co), not a website page.");
       } else {
         setError(msg || "Could not sign in. Please try again.");
       }
@@ -146,6 +148,8 @@ export default function AuthScreen({ onAuthenticated }) {
       const msg = String(e?.message || "");
       if (msg.toLowerCase().includes("failed to fetch")) {
         setError("Network/auth server error. Check internet and Supabase project URL.");
+      } else if (msg.includes("Unexpected token '<'")) {
+        setError("Auth config is wrong: VITE_SUPABASE_URL must be your Supabase Project URL (https://...supabase.co), not a website page.");
       } else {
         setError(msg || "Could not create account. Please try again.");
       }
