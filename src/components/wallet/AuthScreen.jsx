@@ -54,8 +54,9 @@ export default function AuthScreen({ onAuthenticated }) {
     const legacyKey = normalize(input).replace(/\s+/g, "") || key;
     const candidates = [
       `${key}@flowplay.app`,
-      `${key}@flowplay.local`,
-      `${legacyKey}@flowplay.local`,
+      `${key}@flowplay-user.com`,
+      `${legacyKey}@flowplay.app`,
+      `${legacyKey}@flowplay-user.com`,
     ];
 
     return [...new Set(candidates)];
