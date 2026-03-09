@@ -39,6 +39,7 @@ const isInvalidCredentialsError = (message) => {
 export default function AuthScreen({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -81,15 +82,24 @@ export default function AuthScreen({ onAuthenticated }) {
   const handleLogin = async () => {
     if (IS_REMOTE) {
       const cleanName = username.trim();
-      if (!cleanName || !password) {
-        setError("Enter username and password");
+      const cleanEmail = email.trim();
+      if ((!cleanName && !cleanEmail) || !password) {
+        setError("Enter email (or username) and password");
+        return;
+      }
+      if (cleanEmail && !isEmailLike(cleanEmail)) {
+        setError("Enter a valid email address");
         return;
       }
 
       setLoading(true);
       setError("");
       try {
-        await loginWithCandidates(cleanName, password);
+        if (cleanEmail) {
+          await base44.auth.loginViaEmailPassword(normalize(cleanEmail), password);
+        } else {
+          await loginWithCandidates(cleanName, password);
+        }
         const me = await base44.auth.me();
         const allWallets = await base44.entities.Wallet.list();
         let wallet = allWallets.find((w) => w.auth_user_id === me.id);
@@ -154,8 +164,17 @@ export default function AuthScreen({ onAuthenticated }) {
   const handleRegister = async () => {
     if (IS_REMOTE) {
       const cleanName = username.trim();
+      const cleanEmail = email.trim();
       if (cleanName.length < 2) {
         setError("Username must be at least 2 characters");
+        return;
+      }
+      if (!cleanEmail) {
+        setError("Email is required");
+        return;
+      }
+      if (!isEmailLike(cleanEmail)) {
+        setError("Enter a valid email address");
         return;
       }
       if (password.length < 4) {
@@ -166,7 +185,7 @@ export default function AuthScreen({ onAuthenticated }) {
       setLoading(true);
       setError("");
       try {
-        const candidates = getCandidateEmails(cleanName);
+        const candidates = [normalize(cleanEmail), ...getCandidateEmails(cleanName)];
         let loggedIn = false;
         let lastError = null;
 
@@ -307,6 +326,18 @@ export default function AuthScreen({ onAuthenticated }) {
               setError("");
             }}
             placeholder="Username"
+            className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          />
+
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError("");
+            }}
+            placeholder="Email"
             className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           />
