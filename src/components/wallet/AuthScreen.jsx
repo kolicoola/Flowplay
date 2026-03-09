@@ -42,6 +42,7 @@ export default function AuthScreen({ onAuthenticated }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
   const title = useMemo(() => (mode === "login" ? "Sign In" : "Create Account"), [mode]);
@@ -94,6 +95,7 @@ export default function AuthScreen({ onAuthenticated }) {
 
       setLoading(true);
       setError("");
+      setNotice("");
       try {
         if (cleanEmail) {
           await base44.auth.loginViaEmailPassword(normalize(cleanEmail), password);
@@ -138,6 +140,7 @@ export default function AuthScreen({ onAuthenticated }) {
 
     setLoading(true);
     setError("");
+    setNotice("");
     try {
       const accounts = readAccounts();
       const account = accounts.find((a) => a.usernameLower === normalize(cleanName));
@@ -184,14 +187,17 @@ export default function AuthScreen({ onAuthenticated }) {
 
       setLoading(true);
       setError("");
+      setNotice("");
       try {
-        const candidates = [normalize(cleanEmail), ...getCandidateEmails(cleanName)];
+        const candidates = [normalize(cleanEmail)];
         let loggedIn = false;
         let lastError = null;
+        let createdAccount = false;
 
         for (const email of candidates) {
           try {
             await base44.auth.register({ email, password });
+            createdAccount = true;
             await base44.auth.loginViaEmailPassword(email, password);
             loggedIn = true;
             break;
@@ -211,6 +217,15 @@ export default function AuthScreen({ onAuthenticated }) {
 
         if (!loggedIn) {
           throw lastError || new Error("Could not create account");
+        }
+
+        if (createdAccount) {
+          try {
+            await base44.auth.resendOtp(normalize(cleanEmail));
+            setNotice("Verification code sent to your email.");
+          } catch {
+            // Some apps auto-verify or have OTP disabled; ignore silently.
+          }
         }
 
         const me = await base44.auth.me();
@@ -256,6 +271,7 @@ export default function AuthScreen({ onAuthenticated }) {
 
     setLoading(true);
     setError("");
+    setNotice("");
     try {
       const accounts = readAccounts();
       const key = normalize(cleanName);
@@ -302,6 +318,54 @@ export default function AuthScreen({ onAuthenticated }) {
     return handleRegister();
   };
 
+  const handleSendVerificationEmail = async () => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError("Enter your email first");
+      return;
+    }
+    if (!isEmailLike(cleanEmail)) {
+      setError("Enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      await base44.auth.resendOtp(normalize(cleanEmail));
+      setNotice("Verification email sent. Check inbox/spam.");
+    } catch (e) {
+      setError(String(e?.message || "Could not send verification email"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError("Enter your email first");
+      return;
+    }
+    if (!isEmailLike(cleanEmail)) {
+      setError("Enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      await base44.auth.resetPasswordRequest(normalize(cleanEmail));
+      setNotice("Password reset email sent. Check inbox/spam.");
+    } catch (e) {
+      setError(String(e?.message || "Could not send password reset email"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 flex items-center justify-center p-6">
       <motion.div
@@ -324,6 +388,7 @@ export default function AuthScreen({ onAuthenticated }) {
             onChange={(e) => {
               setUsername(e.target.value);
               setError("");
+              setNotice("");
             }}
             placeholder="Username"
             className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
@@ -336,6 +401,7 @@ export default function AuthScreen({ onAuthenticated }) {
             onChange={(e) => {
               setEmail(e.target.value);
               setError("");
+              setNotice("");
             }}
             placeholder="Email"
             className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
@@ -348,6 +414,7 @@ export default function AuthScreen({ onAuthenticated }) {
             onChange={(e) => {
               setPassword(e.target.value);
               setError("");
+              setNotice("");
             }}
             placeholder="Password"
             className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
@@ -355,6 +422,7 @@ export default function AuthScreen({ onAuthenticated }) {
           />
 
           {error && <p className="text-red-400 text-sm">{error}</p>}
+          {notice && <p className="text-emerald-400 text-sm">{notice}</p>}
 
           <Button
             onClick={handleSubmit}
@@ -374,10 +442,32 @@ export default function AuthScreen({ onAuthenticated }) {
             )}
           </Button>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSendVerificationEmail}
+              disabled={loading}
+              className="h-10 border-white/15 text-slate-200 hover:bg-white/10"
+            >
+              Send Verification Email
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSendResetEmail}
+              disabled={loading}
+              className="h-10 border-white/15 text-slate-200 hover:bg-white/10"
+            >
+              Send Reset Email
+            </Button>
+          </div>
+
           <button
             onClick={() => {
               setMode(mode === "login" ? "register" : "login");
               setError("");
+              setNotice("");
             }}
             className="w-full text-sm text-indigo-300 hover:text-indigo-200 transition-colors flex items-center justify-center gap-1"
           >
