@@ -25,6 +25,17 @@ const normalize = (value) => value.trim().toLowerCase();
 const BACKEND_MODE = (import.meta.env.VITE_BACKEND_MODE || "base44").toLowerCase();
 const IS_REMOTE = BACKEND_MODE === "base44";
 
+const toUsernameKey = (name) => normalize(name).replace(/[^a-z0-9._-]/g, "");
+const isEmailLike = (value) => /.+@.+\..+/.test(value.trim());
+const isAlreadyExistsError = (message) => {
+  const msg = String(message || "").toLowerCase();
+  return msg.includes("already") || msg.includes("exist") || msg.includes("registered");
+};
+const isInvalidCredentialsError = (message) => {
+  const msg = String(message || "").toLowerCase();
+  return msg.includes("invalid") || msg.includes("password") || msg.includes("credential");
+};
+
 export default function AuthScreen({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
@@ -33,7 +44,38 @@ export default function AuthScreen({ onAuthenticated }) {
   const [loading, setLoading] = useState(false);
 
   const title = useMemo(() => (mode === "login" ? "Sign In" : "Create Account"), [mode]);
-  const getVirtualEmail = (name) => `${normalize(name).replace(/[^a-z0-9._-]/g, "") || "user"}@flowplay.local`;
+
+  const getCandidateEmails = (nameOrEmail) => {
+    const input = nameOrEmail.trim();
+    if (!input) return [];
+    if (isEmailLike(input)) return [normalize(input)];
+
+    const key = toUsernameKey(input) || "user";
+    const legacyKey = normalize(input).replace(/\s+/g, "") || key;
+    const candidates = [
+      `${key}@flowplay.app`,
+      `${key}@flowplay.local`,
+      `${legacyKey}@flowplay.local`,
+    ];
+
+    return [...new Set(candidates)];
+  };
+
+  const loginWithCandidates = async (nameOrEmail, plainPassword) => {
+    const candidates = getCandidateEmails(nameOrEmail);
+    let lastError = null;
+
+    for (const email of candidates) {
+      try {
+        await base44.auth.loginViaEmailPassword(email, plainPassword);
+        return email;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    throw lastError || new Error("Invalid email or password");
+  };
 
   const handleLogin = async () => {
     if (IS_REMOTE) {
@@ -46,8 +88,7 @@ export default function AuthScreen({ onAuthenticated }) {
       setLoading(true);
       setError("");
       try {
-        const virtualEmail = getVirtualEmail(cleanName);
-        await base44.auth.loginViaEmailPassword(virtualEmail, password);
+        await loginWithCandidates(cleanName, password);
         const me = await base44.auth.me();
         const allWallets = await base44.entities.Wallet.list();
         let wallet = allWallets.find((w) => w.auth_user_id === me.id);
@@ -66,7 +107,12 @@ export default function AuthScreen({ onAuthenticated }) {
 
         await onAuthenticated(wallet);
       } catch (e) {
-        setError(e?.message || "Could not sign in. Please try again.");
+        const msg = String(e?.message || "");
+        if (isInvalidCredentialsError(msg)) {
+          setError("Invalid username or password");
+        } else {
+          setError(msg || "Could not sign in. Please try again.");
+        }
       } finally {
         setLoading(false);
       }
@@ -119,16 +165,34 @@ export default function AuthScreen({ onAuthenticated }) {
       setLoading(true);
       setError("");
       try {
-        const virtualEmail = getVirtualEmail(cleanName);
-        try {
-          await base44.auth.register({ email: virtualEmail, password });
-        } catch (e) {
-          const msg = String(e?.message || "").toLowerCase();
-          const alreadyExists = msg.includes("already") || msg.includes("exist") || msg.includes("registered");
-          if (!alreadyExists) throw e;
+        const candidates = getCandidateEmails(cleanName);
+        let loggedIn = false;
+        let lastError = null;
+
+        for (const email of candidates) {
+          try {
+            await base44.auth.register({ email, password });
+            await base44.auth.loginViaEmailPassword(email, password);
+            loggedIn = true;
+            break;
+          } catch (e) {
+            lastError = e;
+            if (isAlreadyExistsError(e?.message)) {
+              try {
+                await base44.auth.loginViaEmailPassword(email, password);
+                loggedIn = true;
+                break;
+              } catch (loginError) {
+                lastError = loginError;
+              }
+            }
+          }
         }
 
-        await base44.auth.loginViaEmailPassword(virtualEmail, password);
+        if (!loggedIn) {
+          throw lastError || new Error("Could not create account");
+        }
+
         const me = await base44.auth.me();
         const allWallets = await base44.entities.Wallet.list();
         let wallet = allWallets.find((w) => w.auth_user_id === me.id);
@@ -149,8 +213,8 @@ export default function AuthScreen({ onAuthenticated }) {
         await onAuthenticated(wallet);
       } catch (e) {
         const msg = String(e?.message || "");
-        if (msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("password")) {
-          setError("Username already exists with a different password. Try Sign In.");
+        if (isInvalidCredentialsError(msg)) {
+          setError("That username already exists with a different password. Try Sign In.");
         } else {
           setError(msg || "Could not create account. Please try again.");
         }
