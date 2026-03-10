@@ -69,6 +69,10 @@
         "type": "string"
       },
       "description": "List of owned site background IDs"
+    },
+    "auth_user_id": {
+      "type": "string",
+      "description": "The Supabase auth user ID linked to this wallet"
     }
   },
   "required": [
