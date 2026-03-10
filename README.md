@@ -28,7 +28,9 @@ VITE_SUPABASE_URL=https://xyzcompany.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
 ```
 
-5. In Supabase Auth settings, enable Email confirmations.
+5. **Set up the database schema** – open the [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql) for your project, paste the contents of `supabase/migrations/001_initial_schema.sql`, and run it. This creates all tables (`wallets`, `transactions`, `charities`, etc.) required by the application. Verify the query completes without errors before proceeding. Skipping this step will result in errors like *"Could not find the table 'public.wallets' in the schema cache"* when logging in.
+
+6. In Supabase Auth settings, enable Email confirmations.
 
 Run the app: `npm run dev`
 

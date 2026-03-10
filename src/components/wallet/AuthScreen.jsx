@@ -95,6 +95,8 @@ export default function AuthScreen({ onAuthenticated }) {
         setError("Network/auth server error. Check internet and Supabase project URL.");
       } else if (msg.includes("Unexpected token '<'")) {
         setError("Auth config is wrong: VITE_SUPABASE_URL must be your Supabase Project URL (https://...supabase.co), not a website page.");
+      } else if (msg.toLowerCase().includes("schema cache") || /could not find the table/i.test(msg)) {
+        setError("Database tables are missing. Run the SQL migration in supabase/migrations/001_initial_schema.sql via the Supabase SQL Editor, then try again.");
       } else {
         setError(msg || "Could not sign in. Please try again.");
       }
