@@ -1,5 +1,9 @@
+import { supabase, isSupabaseConfigured } from "../lib/supabaseClient.js";
+
 const DB_KEY = "flowplay_local_db_v1";
 
+// All entities served from localStorage (used as a fallback when Supabase is
+// not configured, and to populate the initEmptyDb / storage-sync helpers).
 const ENTITY_NAMES = [
   "Wallet",
   "Transaction",
@@ -10,6 +14,19 @@ const ENTITY_NAMES = [
   "AssetDefinition",
   "AssetPrice",
 ];
+
+// Maps each entity name to the corresponding Supabase table name.
+const ENTITY_TABLE = {
+  Wallet:          "wallets",
+  Transaction:     "transactions",
+  Charity:         "charities",
+  CoinFlip:        "coin_flips",
+  Investment:      "investments",
+  Upgrade:         "upgrades",
+  AssetDefinition: "asset_definitions",
+  AssetPrice:      "asset_prices",
+  Profile:         "profiles",
+};
 
 const listeners = new Map();
 let initializedStorageSync = false;
@@ -186,8 +203,102 @@ const entityApi = (entity) => ({
   },
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Generic Supabase-backed entity API
+// ─────────────────────────────────────────────────────────────────────────────
+
+const supabaseEntityApi = (tableName, entityName) => ({
+  list: async (sortBy, limit) => {
+    let query = supabase.from(tableName).select("*");
+    if (sortBy && typeof sortBy === "string") {
+      const desc = sortBy.startsWith("-");
+      const column = desc ? sortBy.slice(1) : sortBy;
+      query = query.order(column, { ascending: !desc });
+    }
+    if (typeof limit === "number") query = query.limit(limit);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  },
+
+  filter: async (criteria) => {
+    let query = supabase.from(tableName).select("*");
+    for (const [key, value] of Object.entries(criteria || {})) {
+      query = query.eq(key, value);
+    }
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  },
+
+  get: async (id) => {
+    const { data, error } = await supabase.from(tableName).select("*").eq("id", id).single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  create: async (payload) => {
+    const record = { id: getId(), created_date: new Date().toISOString(), ...payload };
+    const { data, error } = await supabase.from(tableName).insert(record).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  update: async (id, patch) => {
+    const { data, error } = await supabase.from(tableName).update(patch).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  delete: async (id) => {
+    const { error } = await supabase.from(tableName).delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+
+  subscribe: (callback) => {
+    const channel = supabase
+      .channel(`${tableName}-changes`)
+      .on("postgres_changes", { event: "*", schema: "public", table: tableName }, (payload) => {
+        const record = payload.new ?? payload.old;
+        callback({
+          entity: entityName,
+          operation: payload.eventType,
+          record,
+          // Backward-compatible aliases used by some components.
+          type: payload.eventType,
+          data: record,
+        });
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  },
+});
+
+// Returns a Supabase-backed API when Supabase is configured, falling back to
+// the localStorage implementation so the app still works offline / in dev.
+const makeEntityApi = (entityName) => {
+  if (isSupabaseConfigured && supabase) {
+    return supabaseEntityApi(ENTITY_TABLE[entityName], entityName);
+  }
+  return entityApi(entityName);
+};
+
 const createLocalClient = () => ({
-  entities: Object.fromEntries(ENTITY_NAMES.map((name) => [name, entityApi(name)])),
+  entities: {
+    ...Object.fromEntries(ENTITY_NAMES.map((name) => [name, makeEntityApi(name)])),
+    // Profile always routes through Supabase (tied to auth.users).
+    Profile: isSupabaseConfigured && supabase
+      ? supabaseEntityApi(ENTITY_TABLE.Profile, "Profile")
+      : {
+          list:      async () => [],
+          filter:    async () => [],
+          get:       async () => null,
+          create:    async () => { throw new Error("Cannot create profile: Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable profile functionality."); },
+          update:    async () => { throw new Error("Cannot update profile: Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable profile functionality."); },
+          delete:    async () => { throw new Error("Cannot delete profile: Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable profile functionality."); },
+          subscribe: () => () => {},
+        },
+  },
   auth: {
     me: async () => ({ id: "local-user", name: "Local User" }),
     logout: () => {},
