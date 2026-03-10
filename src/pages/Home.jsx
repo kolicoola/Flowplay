@@ -21,7 +21,6 @@ import DailyGift from "../components/wallet/DailyGift";
 import UpgradeShop from "../components/wallet/UpgradeShop";
 import CollectorOverlay from "../components/wallet/CollectorOverlay";
 
-const WALLET_ID_KEY = "payflow_wallet_id";
 const STARTUP_TIMEOUT_MS = 6000;
 
 function withTimeout(promise, ms, message) {
@@ -49,25 +48,24 @@ export default function Home() {
   const passiveTimerRef = useRef(null);
 
   const loadWallet = async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      console.error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+      setLoading(false);
+      return;
+    }
     try {
-      const savedId = localStorage.getItem(WALLET_ID_KEY);
       const all = await withTimeout(
         base44.entities.Wallet.list(),
         STARTUP_TIMEOUT_MS,
         "Wallet bootstrap timed out"
       );
 
-      let found = savedId ? all.find((w) => w.id === savedId) : null;
+      let found = null;
 
-      if (!found) {
-        if (isSupabaseConfigured && supabase) {
-          const { data } = await supabase.auth.getUser();
-          const authUserId = data?.user?.id;
-          if (authUserId) {
-            found = all.find((w) => w.auth_user_id === authUserId) || null;
-            if (found) localStorage.setItem(WALLET_ID_KEY, found.id);
-          }
-        }
+      const { data } = await supabase.auth.getUser();
+      const authUserId = data?.user?.id;
+      if (authUserId) {
+        found = all.find((w) => w.auth_user_id === authUserId) || null;
       }
 
       if (found) {
@@ -77,12 +75,9 @@ export default function Home() {
           loadTransactions(found.id),
           loadUpgrades(found.id),
         ]);
-      } else {
-        localStorage.removeItem(WALLET_ID_KEY);
       }
     } catch (error) {
       console.error("Wallet bootstrap failed:", error);
-      localStorage.removeItem(WALLET_ID_KEY);
       setMyWallet(null);
       walletRef.current = null;
     } finally {
@@ -137,7 +132,6 @@ export default function Home() {
       } catch (e) {
         // Wallet was deleted — stop the timer and clear local state
         clearInterval(passiveTimerRef.current);
-        localStorage.removeItem(WALLET_ID_KEY);
         walletRef.current = null;
         setMyWallet(null);
       }
@@ -149,7 +143,6 @@ export default function Home() {
   const isDevMode = myWallet?.username?.toLowerCase() === "payflow";
 
   const handleAuthComplete = async (wallet) => {
-    localStorage.setItem(WALLET_ID_KEY, wallet.id);
     setMyWallet(wallet);
     walletRef.current = wallet;
     await Promise.allSettled([
@@ -178,7 +171,6 @@ export default function Home() {
 
   const handleSwitchUser = async (walletId) => {
     if (!walletId) return;
-    localStorage.setItem(WALLET_ID_KEY, walletId);
     const all = await base44.entities.Wallet.list();
     const found = all.find((w) => w.id === walletId);
     if (!found) return;
