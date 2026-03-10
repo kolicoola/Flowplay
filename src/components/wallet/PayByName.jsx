@@ -66,24 +66,14 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
         throw new Error("Recipient wallet was not found.");
       }
       if (amt > (senderWallet.balance || 0)) {
-        toast.error("Insufficient balance");
-        return;
+        throw new Error("Insufficient balance");
       }
 
-      await base44.entities.Transaction.create({
-        from_wallet_id: senderWallet.id,
-        to_wallet_id: recipientWallet.id,
-        from_username: senderWallet.username,
-        to_username: recipientWallet.username,
-        amount: amt,
-        note: note.trim() || undefined,
-      });
-
-      await base44.entities.Wallet.update(senderWallet.id, {
-        balance: (senderWallet.balance || 0) - amt,
-      });
-      await base44.entities.Wallet.update(recipientWallet.id, {
-        balance: (recipientWallet.balance || 0) + amt,
+      await base44.transferFunds({
+        fromWalletId: senderWallet.id,
+        toWalletId:   recipientWallet.id,
+        amount:       amt,
+        note:         note.trim() || null,
       });
 
       toast.success(`Sent $${amt.toFixed(2)} to ${recipientWallet.username}`);
