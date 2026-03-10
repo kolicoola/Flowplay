@@ -1,3 +1,5 @@
+import { supabase, isSupabaseConfigured } from "../lib/supabaseClient.js";
+
 const DB_KEY = "flowplay_local_db_v1";
 
 const ENTITY_NAMES = [
@@ -186,8 +188,85 @@ const entityApi = (entity) => ({
   },
 });
 
+// Supabase-backed API for the `profiles` table (exposed via RLS).
+const supabaseProfileApi = {
+  list: async (sortBy, limit) => {
+    if (!isSupabaseConfigured || !supabase) return [];
+    let query = supabase.from("profiles").select("*");
+    if (sortBy && typeof sortBy === "string") {
+      const desc = sortBy.startsWith("-");
+      const column = desc ? sortBy.slice(1) : sortBy;
+      query = query.order(column, { ascending: !desc });
+    }
+    if (typeof limit === "number") query = query.limit(limit);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  },
+
+  filter: async (criteria) => {
+    if (!isSupabaseConfigured || !supabase) return [];
+    let query = supabase.from("profiles").select("*");
+    for (const [key, value] of Object.entries(criteria || {})) {
+      query = query.eq(key, value);
+    }
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  },
+
+  get: async (id) => {
+    if (!isSupabaseConfigured || !supabase) return null;
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  create: async (payload) => {
+    if (!isSupabaseConfigured || !supabase) throw new Error("Supabase is not configured");
+    const { data, error } = await supabase.from("profiles").insert(payload).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  update: async (id, patch) => {
+    if (!isSupabaseConfigured || !supabase) throw new Error("Supabase is not configured");
+    const { data, error } = await supabase.from("profiles").update(patch).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  delete: async (id) => {
+    if (!isSupabaseConfigured || !supabase) throw new Error("Supabase is not configured");
+    const { error } = await supabase.from("profiles").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+
+  subscribe: (callback) => {
+    if (!isSupabaseConfigured || !supabase) return () => {};
+    const channel = supabase
+      .channel("profiles-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, (payload) => {
+        const record = payload.new ?? payload.old;
+        callback({
+          entity: "Profile",
+          operation: payload.eventType,
+          record,
+          // Backward-compatible aliases used by some components.
+          type: payload.eventType,
+          data: record,
+        });
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  },
+};
+
 const createLocalClient = () => ({
-  entities: Object.fromEntries(ENTITY_NAMES.map((name) => [name, entityApi(name)])),
+  entities: {
+    ...Object.fromEntries(ENTITY_NAMES.map((name) => [name, entityApi(name)])),
+    Profile: supabaseProfileApi,
+  },
   auth: {
     me: async () => ({ id: "local-user", name: "Local User" }),
     logout: () => {},
