@@ -21,7 +21,7 @@ function CreateCharityForm({ wallet, onCreated, onBack }) {
     const all = await base44.entities.Wallet.list();
     setSearchResults(
       all.filter((w) => w.id !== wallet.id && !coFounders.find((f) => f.id === w.id) &&
-        w.username.toLowerCase().includes(q.toLowerCase())
+        (w.username ?? "").toLowerCase().includes(q.toLowerCase())
       ).slice(0, 5)
     );
     setSearching(false);

@@ -21,10 +21,16 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
     if (!open) return;
     const preload = async () => {
       setSearching(true);
-      const allWallets = await base44.entities.Wallet.list();
-      const filtered = allWallets.filter((w) => w.id !== wallet.id);
-      setResults(filtered.slice(0, 20));
-      setSearching(false);
+      try {
+        const allWallets = await base44.entities.Wallet.list();
+        const filtered = allWallets.filter((w) => w.id !== wallet.id && w.username);
+        setResults(filtered.slice(0, 20));
+      } catch (e) {
+        console.error("Failed to load users:", e);
+        toast.error("Could not load users. Please try again.");
+      } finally {
+        setSearching(false);
+      }
     };
     preload();
   }, [open, wallet.id]);
@@ -32,12 +38,18 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
-    const allWallets = await base44.entities.Wallet.list();
-    const filtered = allWallets.filter(
-      (w) => w.id !== wallet.id && w.username.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setResults(filtered);
-    setSearching(false);
+    try {
+      const allWallets = await base44.entities.Wallet.list();
+      const filtered = allWallets.filter(
+        (w) => w.id !== wallet.id && (w.username ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setResults(filtered);
+    } catch (e) {
+      console.error("Failed to search users:", e);
+      toast.error("Could not search users. Please try again.");
+    } finally {
+      setSearching(false);
+    }
   };
 
   const handlePay = async () => {
@@ -140,7 +152,7 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold"
                      style={getAvatarStyle(w)}
                     >
-                      {w.username[0].toUpperCase()}
+                      {(w.username?.[0] ?? "?").toUpperCase()}
                     </div>
                     <div>
                       <p className="font-medium">{w.username}</p>
@@ -148,8 +160,10 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
                     </div>
                   </motion.button>
                 ))}
-                {results.length === 0 && searchQuery && !searching && (
-                  <p className="text-center text-slate-500 py-4">No users found</p>
+                {results.length === 0 && !searching && (
+                  <p className="text-center text-slate-500 py-4">
+                    {searchQuery ? "No users found" : "No other users found"}
+                  </p>
                 )}
               </div>
             </motion.div>
@@ -160,7 +174,7 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
                   className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
                   style={getAvatarStyle(selectedUser)}
                 >
-                  {selectedUser.username[0].toUpperCase()}
+                  {(selectedUser.username?.[0] ?? "?").toUpperCase()}
                 </div>
                 <div>
                   <p className="font-semibold text-lg">{selectedUser.username}</p>
