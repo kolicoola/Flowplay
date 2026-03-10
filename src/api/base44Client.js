@@ -162,6 +162,13 @@ const entityApi = (entity) => ({
     return db[entity].filter((record) => matchesFilter(record, criteria));
   },
 
+  get: async (id) => {
+    const db = readDb();
+    const found = db[entity].find((record) => record.id === id);
+    if (!found) throw new Error(`${entity} not found`);
+    return found;
+  },
+
   create: async (payload) => {
     const db = readDb();
     const record = {
@@ -274,11 +281,74 @@ const supabaseEntityApi = (tableName, entityName) => ({
   },
 });
 
+// Returns true for Supabase errors that indicate the table does not yet exist
+// in the database (i.e. the SQL migration has not been run).
+const isTableMissingError = (e) => {
+  const msg = String(e?.message || "");
+  return (
+    msg.toLowerCase().includes("schema cache") ||
+    /could not find the table/i.test(msg) ||
+    /relation .* does not exist/i.test(msg)
+  );
+};
+
+// Tracks which Supabase tables are known to be missing so that:
+//  1. Subsequent calls skip the Supabase round-trip (better performance).
+//  2. subscribe() can immediately use the localStorage implementation.
+const missingTables = new Set();
+
 // Returns a Supabase-backed API when Supabase is configured, falling back to
-// the localStorage implementation so the app still works offline / in dev.
+// the localStorage implementation so the app still works offline / in dev,
+// or when the SQL migration has not been run yet (tables missing).
 const makeEntityApi = (entityName) => {
   if (isSupabaseConfigured && supabase) {
-    return supabaseEntityApi(ENTITY_TABLE[entityName], entityName);
+    const tableName = ENTITY_TABLE[entityName];
+    const supabaseApi = supabaseEntityApi(tableName, entityName);
+    const localApi = entityApi(entityName);
+
+    // Wrap each Supabase method: on a "table missing" error fall back to the
+    // equivalent localStorage method so the app remains usable even before the
+    // database migration has been applied.  Once a table is known to be missing
+    // the flag is cached (missingTables) so later calls skip the Supabase
+    // round-trip entirely.
+    const wrap = (supabaseFn, localFn) => async (...args) => {
+      if (missingTables.has(tableName)) {
+        return await localFn(...args);
+      }
+      try {
+        return await supabaseFn(...args);
+      } catch (e) {
+        if (isTableMissingError(e)) {
+          console.warn(
+            `[Flowplay] Supabase table for "${entityName}" not found – falling back to localStorage. ` +
+            "Run supabase/migrations/001_initial_schema.sql via the Supabase SQL Editor to enable full database support."
+          );
+          missingTables.add(tableName);
+          return await localFn(...args);
+        }
+        throw e;
+      }
+    };
+
+    // For subscribe: if the table is already known to be missing (detected by a
+    // prior list/filter/create call) use the localStorage subscription so that
+    // UI components still receive change notifications while in fallback mode.
+    const subscribe = (callback) => {
+      if (missingTables.has(tableName)) {
+        return localApi.subscribe(callback);
+      }
+      return supabaseApi.subscribe(callback);
+    };
+
+    return {
+      list:      wrap(supabaseApi.list,      localApi.list),
+      filter:    wrap(supabaseApi.filter,    localApi.filter),
+      get:       wrap(supabaseApi.get,       localApi.get),
+      create:    wrap(supabaseApi.create,    localApi.create),
+      update:    wrap(supabaseApi.update,    localApi.update),
+      delete:    wrap(supabaseApi.delete,    localApi.delete),
+      subscribe,
+    };
   }
   return entityApi(entityName);
 };
