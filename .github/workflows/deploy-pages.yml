@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write   # <-- add this so we can delete artifacts
 
 concurrency:
   group: "pages"
@@ -59,6 +60,30 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Clean up duplicate github-pages artifacts (keep newest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifacts=$(gh api -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts | map(select(.name=="github-pages")) | sort_by(.created_at) | reverse')
+
+          count=$(echo "$artifacts" | jq 'length')
+          echo "Found $count github-pages artifacts for this run"
+
+          if [ "$count" -le 1 ]; then
+            echo "No cleanup needed"
+            exit 0
+          fi
+
+          # delete all but newest (index 0 is newest)
+          echo "$artifacts" | jq -r '.[1:][] | .id' | while read -r id; do
+            echo "Deleting artifact id=$id"
+            gh api -X DELETE -H "Accept: application/vnd.github+json" \
+              "/repos/${{ github.repository }}/actions/artifacts/$id"
+          done
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
