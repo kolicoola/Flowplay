@@ -289,3 +289,8 @@ $$;
 
 -- Allow authenticated users (and anon for local-dev bypass) to call the function
 GRANT EXECUTE ON FUNCTION public.transfer_funds TO authenticated, anon;
+
+-- Ensure all table-level privileges are granted so RLS policies take effect.
+-- This is safe to run multiple times (GRANT is idempotent).
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;

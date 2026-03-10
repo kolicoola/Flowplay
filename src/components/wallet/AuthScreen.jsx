@@ -182,17 +182,19 @@ export default function AuthScreen({ onAuthenticated }) {
         </div>
 
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl space-y-5">
-          <Input
-            value={username}
-            onChange={(e) => {
-              setUsername(e.target.value);
-              setError("");
-              setNotice("");
-            }}
-            placeholder="Username"
-            className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          />
+          {mode === "register" && (
+            <Input
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                setError("");
+                setNotice("");
+              }}
+              placeholder="Username"
+              className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            />
+          )}
 
           <Input
             type="email"
