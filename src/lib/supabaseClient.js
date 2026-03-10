@@ -22,3 +22,7 @@ export const supabaseConfigError =
 export const supabase = hasSupabaseConfig
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+
+
+if (typeof window !== "undefined") window.supabase = supabase;
