@@ -58,29 +58,38 @@ function QRScanPay({ wallet, initialWalletId, onPaymentComplete, onClose }) {
   const handlePay = async () => {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
-    if (amt > wallet.balance) { toast.error("Insufficient balance"); return; }
     setSending(true);
+    try {
+      // Pull fresh balances to avoid stale-state overwrites.
+      const allWallets = await base44.entities.Wallet.list();
+      const freshSender    = allWallets.find((w) => w.id === wallet.id);
+      const freshRecipient = allWallets.find((w) => w.id === foundUser.id);
 
-    await base44.entities.Transaction.create({
-      from_wallet_id: wallet.id,
-      to_wallet_id: foundUser.id,
-      from_username: wallet.username,
-      to_username: foundUser.username,
-      amount: amt,
-      note: note.trim() || undefined,
-    });
-    await base44.entities.Wallet.update(wallet.id, { balance: wallet.balance - amt });
-    await base44.entities.Wallet.update(foundUser.id, { balance: (foundUser.balance || 0) + amt });
+      if (!freshSender)    throw new Error("Your wallet was not found. Please sign in again.");
+      if (!freshRecipient) throw new Error("Recipient wallet was not found.");
+      if (amt > (freshSender.balance || 0)) throw new Error("Insufficient balance");
 
-    // Clear the ?pay= param from URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete("pay");
-    window.history.replaceState({}, "", url.toString());
+      await base44.transferFunds({
+        fromWalletId: freshSender.id,
+        toWalletId:   freshRecipient.id,
+        amount:       amt,
+        note:         note.trim() || null,
+      });
 
-    setSending(false);
-    toast.success(`Sent $${amt.toFixed(2)} to ${foundUser.username}`);
-    onPaymentComplete();
-    onClose();
+      // Clear the ?pay= param from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("pay");
+      window.history.replaceState({}, "", url.toString());
+
+      toast.success(`Sent $${amt.toFixed(2)} to ${freshRecipient.username}`);
+      onPaymentComplete();
+      onClose();
+    } catch (e) {
+      toast.error(String(e?.message || "Could not send payment"));
+      console.error("QR payment failed:", e);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (

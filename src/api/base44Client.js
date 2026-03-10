@@ -283,6 +283,66 @@ const makeEntityApi = (entityName) => {
   return entityApi(entityName);
 };
 
+// Atomic money transfer: uses the Supabase `transfer_funds` RPC when Supabase
+// is configured so the balance deduction, credit, and transaction log entry all
+// happen in a single database transaction.  Falls back to a synchronous
+// localStorage update (JS is single-threaded, so that path is safe too).
+const makeTransferFunds = () => {
+  if (isSupabaseConfigured && supabase) {
+    return async ({ fromWalletId, toWalletId, amount, note }) => {
+      const transactionId = getId();
+      const { data, error } = await supabase.rpc("transfer_funds", {
+        p_transaction_id: transactionId,
+        p_from_wallet_id: fromWalletId,
+        p_to_wallet_id:   toWalletId,
+        p_amount:         amount,
+        p_note:           note || null,
+      });
+      if (error) throw new Error(error.message);
+      return data;
+    };
+  }
+
+  // Local-mode fallback: do everything in one synchronous read-modify-write
+  // cycle.  JavaScript is single-threaded and localStorage operations are
+  // synchronous, so no concurrent read can observe a half-updated state
+  // between readDb(), the mutations, and writeDb().
+  return async ({ fromWalletId, toWalletId, amount, note }) => {
+    if (amount <= 0) throw new Error("Amount must be positive");
+    if (fromWalletId === toWalletId) throw new Error("Cannot transfer to the same wallet");
+
+    const db = readDb();
+    const senderIdx    = db.Wallet.findIndex((w) => w.id === fromWalletId);
+    const recipientIdx = db.Wallet.findIndex((w) => w.id === toWalletId);
+    if (senderIdx    === -1) throw new Error("Sender wallet not found");
+    if (recipientIdx === -1) throw new Error("Recipient wallet not found");
+    if (db.Wallet[senderIdx].balance < amount) throw new Error("Insufficient balance");
+
+    const transactionId = getId();
+    const tx = {
+      id:             transactionId,
+      created_date:   new Date().toISOString(),
+      from_wallet_id: fromWalletId,
+      to_wallet_id:   toWalletId,
+      from_username:  db.Wallet[senderIdx].username,
+      to_username:    db.Wallet[recipientIdx].username,
+      amount,
+      note: note || null,
+    };
+
+    db.Wallet[senderIdx]    = { ...db.Wallet[senderIdx],    balance: db.Wallet[senderIdx].balance    - amount };
+    db.Wallet[recipientIdx] = { ...db.Wallet[recipientIdx], balance: db.Wallet[recipientIdx].balance + amount };
+    db.Transaction.push(tx);
+    writeDb(db);
+
+    notify("Transaction", "create", tx);
+    notify("Wallet", "update", db.Wallet[senderIdx]);
+    notify("Wallet", "update", db.Wallet[recipientIdx]);
+
+    return { success: true, new_balance: db.Wallet[senderIdx].balance };
+  };
+};
+
 const createLocalClient = () => ({
   entities: {
     ...Object.fromEntries(ENTITY_NAMES.map((name) => [name, makeEntityApi(name)])),
@@ -304,6 +364,8 @@ const createLocalClient = () => ({
     logout: () => {},
     redirectToLogin: () => {},
   },
+  // Atomic balance transfer — prefer over manual Wallet.update + Transaction.create
+  transferFunds: makeTransferFunds(),
 });
 
 export const base44 = createLocalClient();
