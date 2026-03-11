@@ -204,7 +204,8 @@ export default function Home() {
     return <AuthScreen onAuthenticated={handleAuthComplete} />;
   }
 
-  const siteBgStyle = getSiteBgStyle(myWallet?.site_background, myWallet?.site_background_custom);
+  const localCustomSiteBg = localStorage.getItem(`flowplay_custom_bg_${myWallet?.id}`);
+  const siteBgStyle = getSiteBgStyle(myWallet?.site_background, myWallet?.site_background_custom || localCustomSiteBg);
 
   return (
     <div className="min-h-screen p-4 pb-20 md:p-8" style={siteBgStyle}>

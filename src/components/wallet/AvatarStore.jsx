@@ -39,22 +39,41 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
   const currentLetterColor = wallet.avatar_letter_color || "default";
   const currentHair = wallet.avatar_hair || "none";
   const currentSiteBg = wallet.site_background || "default";
-  const customSiteBackground = wallet.site_background_custom || null;
+  const localCustomBgKey = `flowplay_custom_bg_${wallet.id}`;
+  const customSiteBackground = wallet.site_background_custom || localStorage.getItem(localCustomBgKey) || null;
+
+  const isMissingColumnError = (error, columnName) => {
+    const msg = String(error?.message || "").toLowerCase();
+    return msg.includes("column") && msg.includes(columnName.toLowerCase());
+  };
+
+  const isPackageOwned = (pkg) => {
+    if (ownedPackages.includes(pkg.id)) return true;
+    const hasFonts = (pkg.fontUnlocks || []).every((id) => ownedFonts.includes(id));
+    const hasAvatar = (pkg.avatarBgUnlocks || []).every((id) => owned.includes(id));
+    const hasSite = (pkg.siteBgUnlocks || []).every((id) => ownedSiteBgs.includes(id));
+    return hasFonts && hasAvatar && hasSite;
+  };
 
   const buy = async (field, ownedField, id, price, label, extraFields = {}) => {
     if (wallet.balance < price) { toast.error(`You need $${price} to buy this.`); return; }
     setBuying(id);
     const currentOwned = wallet[ownedField] || [];
     const newOwned = [...new Set([...currentOwned, id])];
-    await base44.entities.Wallet.update(wallet.id, {
-      balance: wallet.balance - price,
-      [ownedField]: newOwned,
-      [field]: id,
-      ...extraFields,
-    });
-    toast.success(`"${label}" unlocked & equipped!`);
-    setBuying(null);
-    onRefresh();
+    try {
+      await base44.entities.Wallet.update(wallet.id, {
+        balance: wallet.balance - price,
+        [ownedField]: newOwned,
+        [field]: id,
+        ...extraFields,
+      });
+      toast.success(`"${label}" unlocked & equipped!`);
+      onRefresh();
+    } catch (error) {
+      toast.error(`Purchase failed: ${error?.message || "Unknown error"}`);
+    } finally {
+      setBuying(null);
+    }
   };
 
   const buyPackage = async (pkg) => {
@@ -67,17 +86,34 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
     const nextFonts = [...new Set([...(wallet.owned_fonts || []), ...(pkg.fontUnlocks || [])])];
     const nextAvatarBgs = [...new Set([...(wallet.owned_backgrounds || []), ...(pkg.avatarBgUnlocks || [])])];
     const nextSiteBgs = [...new Set([...(wallet.owned_site_backgrounds || []), ...(pkg.siteBgUnlocks || [])])];
-    await base44.entities.Wallet.update(wallet.id, {
-      balance: wallet.balance - pkg.price,
-      owned_packages: nextPackages,
-      owned_fonts: nextFonts,
-      owned_backgrounds: nextAvatarBgs,
-      owned_site_backgrounds: nextSiteBgs,
-      ...(pkg.autoEquip || {}),
-    });
-    toast.success(`${pkg.label} unlocked!`);
-    setBuying(null);
-    onRefresh();
+    try {
+      try {
+        await base44.entities.Wallet.update(wallet.id, {
+          balance: wallet.balance - pkg.price,
+          owned_packages: nextPackages,
+          owned_fonts: nextFonts,
+          owned_backgrounds: nextAvatarBgs,
+          owned_site_backgrounds: nextSiteBgs,
+          ...(pkg.autoEquip || {}),
+        });
+      } catch (error) {
+        if (!isMissingColumnError(error, "owned_packages")) throw error;
+        // Backward-compatible fallback if DB migration has not added `owned_packages` yet.
+        await base44.entities.Wallet.update(wallet.id, {
+          balance: wallet.balance - pkg.price,
+          owned_fonts: nextFonts,
+          owned_backgrounds: nextAvatarBgs,
+          owned_site_backgrounds: nextSiteBgs,
+          ...(pkg.autoEquip || {}),
+        });
+      }
+      toast.success(`${pkg.label} unlocked!`);
+      onRefresh();
+    } catch (error) {
+      toast.error(`Package purchase failed: ${error?.message || "Unknown error"}`);
+    } finally {
+      setBuying(null);
+    }
   };
 
   useEffect(() => {
@@ -156,23 +192,43 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
     setBuying("custom-canvas-save");
     const image = canvas.toDataURL("image/png");
     const newOwnedSiteBgs = [...new Set([...(wallet.owned_site_backgrounds || []), "custom_canvas"])];
-    await base44.entities.Wallet.update(wallet.id, {
-      site_background: "custom_canvas",
-      site_background_custom: image,
-      owned_site_backgrounds: newOwnedSiteBgs,
-    });
-    setBuying(null);
-    setShowDrawModal(false);
-    toast.success("Your custom site background is live!");
-    onRefresh();
+    try {
+      try {
+        await base44.entities.Wallet.update(wallet.id, {
+          site_background: "custom_canvas",
+          site_background_custom: image,
+          owned_site_backgrounds: newOwnedSiteBgs,
+        });
+      } catch (error) {
+        if (!isMissingColumnError(error, "site_background_custom")) throw error;
+        // Backward-compatible fallback: keep custom image locally if DB column is unavailable.
+        localStorage.setItem(localCustomBgKey, image);
+        await base44.entities.Wallet.update(wallet.id, {
+          site_background: "custom_canvas",
+          owned_site_backgrounds: newOwnedSiteBgs,
+        });
+      }
+      setShowDrawModal(false);
+      toast.success("Your custom site background is live!");
+      onRefresh();
+    } catch (error) {
+      toast.error(`Save failed: ${error?.message || "Unknown error"}`);
+    } finally {
+      setBuying(null);
+    }
   };
 
   const equip = async (field, id, label) => {
     setBuying(id);
-    await base44.entities.Wallet.update(wallet.id, { [field]: id });
-    toast.success(`"${label}" equipped!`);
-    setBuying(null);
-    onRefresh();
+    try {
+      await base44.entities.Wallet.update(wallet.id, { [field]: id });
+      toast.success(`"${label}" equipped!`);
+      onRefresh();
+    } catch (error) {
+      toast.error(`Equip failed: ${error?.message || "Unknown error"}`);
+    } finally {
+      setBuying(null);
+    }
   };
 
   const letterStyle = getLetterColorStyle(currentLetterColor);
@@ -375,7 +431,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
         {tab === "packages" && (
           <div className="overflow-y-auto p-4 space-y-3">
             {[...STORE_PACKAGES].sort((a, b) => a.price - b.price).map(pkg => {
-              const isOwned = ownedPackages.includes(pkg.id);
+              const isOwned = isPackageOwned(pkg);
               const isLoading = buying === pkg.id;
               const canAfford = wallet.balance >= pkg.price;
               return (
