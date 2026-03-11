@@ -31,11 +31,11 @@ function CreateCharityForm({ wallet, onCreated, onBack }) {
     if (!name.trim() || !description.trim()) { toast.error("Fill in all fields"); return; }
     const min = parseFloat(minDonation);
     if (isNaN(min) || min < 0) { toast.error("Invalid minimum donation"); return; }
-    if (wallet.balance < 5) { toast.error("You need at least $5 to create a charity."); return; }
+    if (wallet.balance < 10) { toast.error("You need at least $10 to create a charity."); return; }
     setSaving(true);
     const founderIds = [wallet.id, ...coFounders.map((f) => f.id)];
     const founderNames = [wallet.username, ...coFounders.map((f) => f.username)];
-    await base44.entities.Wallet.update(wallet.id, { balance: wallet.balance - 5 });
+    await base44.entities.Wallet.update(wallet.id, { balance: wallet.balance - 10 });
     await base44.entities.Charity.create({
       name: name.trim(),
       description: description.trim(),
@@ -45,7 +45,7 @@ function CreateCharityForm({ wallet, onCreated, onBack }) {
       total_raised: 0,
       creator_wallet_id: wallet.id,
     });
-    toast.success(`"${name.trim()}" created for $5!`);
+    toast.success(`"${name.trim()}" created for $10!`);
     setSaving(false);
     onCreated();
   };
@@ -55,7 +55,7 @@ function CreateCharityForm({ wallet, onCreated, onBack }) {
       <button onClick={onBack} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm transition-colors">
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
-      <h3 className="text-white font-bold text-base">Create a Charity <span className="text-amber-400 font-mono text-sm ml-1">($5)</span></h3>
+      <h3 className="text-white font-bold text-base">Create a Charity <span className="text-amber-400 font-mono text-sm ml-1">($10)</span></h3>
 
       <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Charity name" className="bg-white/10 border-white/10 text-white placeholder:text-slate-500" />
       <textarea
@@ -114,7 +114,7 @@ function CreateCharityForm({ wallet, onCreated, onBack }) {
         className="w-full py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Heart className="w-4 h-4" />}
-        Create Charity ($5)
+        Create Charity ($10)
       </button>
     </div>
   );
@@ -313,7 +313,7 @@ export default function CharityPage({ wallet, onClose, onRefresh, isDevMode }) {
                     <div className="text-center py-12">
                       <Heart className="w-10 h-10 text-slate-700 mx-auto mb-3" />
                       <p className="text-slate-500 text-sm">No charities yet.</p>
-                      <p className="text-slate-600 text-xs mt-1">Create the first one for $5!</p>
+                      <p className="text-slate-600 text-xs mt-1">Create the first one for $10!</p>
                     </div>
                   ) : (
                     charities.map((c) => (
