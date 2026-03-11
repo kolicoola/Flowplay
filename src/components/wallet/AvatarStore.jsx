@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
-import { ShoppingBag, X, Check, Lock, Type, Palette, Globe } from "lucide-react";
+import { ShoppingBag, X, Check, Lock, Type, Palette, Globe, Gem, Brush } from "lucide-react";
 import { toast } from "sonner";
 import {
-  AVATAR_BACKGROUNDS, FONTS, LETTER_COLORS, SITE_BACKGROUNDS,
+  AVATAR_BACKGROUNDS, FONTS, LETTER_COLORS, SITE_BACKGROUNDS, STORE_PACKAGES,
   getAvatarBgStyle, getFontStyle, getLetterColorStyle, getAvatarStyle, HairOverlay
 } from "./avatarUtils";
 
@@ -15,21 +15,31 @@ const TABS = [
   { id: "fonts",       label: "Fonts",         icon: Type },
   { id: "lettercolor", label: "Letter",        icon: Palette },
   { id: "sitebg",      label: "Site BG",       icon: Globe },
+  { id: "packages",    label: "Packages",      icon: Gem },
 ];
 
 export default function AvatarStore({ wallet, onClose, onRefresh }) {
   const [tab, setTab] = useState("backgrounds");
   const [buying, setBuying] = useState(null);
+  const [showDrawModal, setShowDrawModal] = useState(false);
+  const [brushColor, setBrushColor] = useState("#ffffff");
+  const [brushSize, setBrushSize] = useState(10);
+
+  const canvasRef = useRef(null);
+  const drawingRef = useRef(false);
+  const lastPointRef = useRef(null);
 
   const owned = wallet.owned_backgrounds || [];
   const ownedFonts = wallet.owned_fonts || [];
   const ownedLetterColors = wallet.owned_letter_colors || [];
   const ownedSiteBgs = wallet.owned_site_backgrounds || [];
+  const ownedPackages = wallet.owned_packages || [];
   const current = wallet.avatar_background || "default";
   const currentFont = wallet.avatar_font || "default";
   const currentLetterColor = wallet.avatar_letter_color || "default";
   const currentHair = wallet.avatar_hair || "none";
   const currentSiteBg = wallet.site_background || "default";
+  const customSiteBackground = wallet.site_background_custom || null;
 
   const buy = async (field, ownedField, id, price, label, extraFields = {}) => {
     if (wallet.balance < price) { toast.error(`You need $${price} to buy this.`); return; }
@@ -44,6 +54,116 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
     });
     toast.success(`"${label}" unlocked & equipped!`);
     setBuying(null);
+    onRefresh();
+  };
+
+  const buyPackage = async (pkg) => {
+    if (wallet.balance < pkg.price) {
+      toast.error(`You need $${pkg.price} to buy this package.`);
+      return;
+    }
+    setBuying(pkg.id);
+    const nextPackages = [...new Set([...(wallet.owned_packages || []), pkg.id])];
+    const nextFonts = [...new Set([...(wallet.owned_fonts || []), ...(pkg.fontUnlocks || [])])];
+    const nextAvatarBgs = [...new Set([...(wallet.owned_backgrounds || []), ...(pkg.avatarBgUnlocks || [])])];
+    const nextSiteBgs = [...new Set([...(wallet.owned_site_backgrounds || []), ...(pkg.siteBgUnlocks || [])])];
+    await base44.entities.Wallet.update(wallet.id, {
+      balance: wallet.balance - pkg.price,
+      owned_packages: nextPackages,
+      owned_fonts: nextFonts,
+      owned_backgrounds: nextAvatarBgs,
+      owned_site_backgrounds: nextSiteBgs,
+      ...(pkg.autoEquip || {}),
+    });
+    toast.success(`${pkg.label} unlocked!`);
+    setBuying(null);
+    onRefresh();
+  };
+
+  useEffect(() => {
+    if (!showDrawModal || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.fillStyle = "#111827";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (customSiteBackground) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      img.src = customSiteBackground;
+    }
+  }, [showDrawModal, customSiteBackground]);
+
+  const getCanvasPoint = (event) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const touch = event.touches?.[0] || event.changedTouches?.[0];
+    const clientX = touch ? touch.clientX : event.clientX;
+    const clientY = touch ? touch.clientY : event.clientY;
+    return {
+      x: ((clientX - rect.left) / rect.width) * canvas.width,
+      y: ((clientY - rect.top) / rect.height) * canvas.height,
+    };
+  };
+
+  const startDrawing = (event) => {
+    event.preventDefault();
+    drawingRef.current = true;
+    lastPointRef.current = getCanvasPoint(event);
+  };
+
+  const draw = (event) => {
+    if (!drawingRef.current || !canvasRef.current) return;
+    event.preventDefault();
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const point = getCanvasPoint(event);
+    const last = lastPointRef.current || point;
+
+    ctx.strokeStyle = brushColor;
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+
+    lastPointRef.current = point;
+  };
+
+  const stopDrawing = () => {
+    drawingRef.current = false;
+    lastPointRef.current = null;
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#111827";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const saveCustomBackground = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setBuying("custom-canvas-save");
+    const image = canvas.toDataURL("image/png");
+    const newOwnedSiteBgs = [...new Set([...(wallet.owned_site_backgrounds || []), "custom_canvas"])];
+    await base44.entities.Wallet.update(wallet.id, {
+      site_background: "custom_canvas",
+      site_background_custom: image,
+      owned_site_backgrounds: newOwnedSiteBgs,
+    });
+    setBuying(null);
+    setShowDrawModal(false);
+    toast.success("Your custom site background is live!");
     onRefresh();
   };
 
@@ -212,21 +332,35 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
               const isEquipped = currentSiteBg === bg.id;
               const isLoading = buying === bg.id;
               const canAfford = wallet.balance >= bg.price;
+              const isCustomCanvas = bg.id === "custom_canvas";
+              const previewStyle = isCustomCanvas && customSiteBackground
+                ? { backgroundImage: `url(${customSiteBackground})`, backgroundSize: "cover", backgroundPosition: "center" }
+                : bg.style;
               return (
                 <motion.button key={bg.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                   disabled={!!buying}
-                  onClick={() => isOwned ? equip("site_background", bg.id, bg.label) : buy("site_background", "owned_site_backgrounds", bg.id, bg.price, bg.label)}
+                  onClick={() => {
+                    if (isOwned && isCustomCanvas) {
+                      setShowDrawModal(true);
+                      return;
+                    }
+                    if (isOwned) {
+                      equip("site_background", bg.id, bg.label);
+                      return;
+                    }
+                    buy("site_background", "owned_site_backgrounds", bg.id, bg.price, bg.label);
+                  }}
                   className={`relative w-full flex items-center gap-4 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
                 >
                   {/* Preview swatch */}
-                  <div className="w-16 h-10 rounded-xl flex-shrink-0 shadow-inner" style={bg.style} />
+                  <div className="w-16 h-10 rounded-xl flex-shrink-0 shadow-inner" style={previewStyle} />
                   <div className="flex-1 text-left">
                     <p className="text-white font-semibold text-sm">{bg.label}</p>
-                    <p className="text-slate-500 text-xs">Page background</p>
+                    <p className="text-slate-500 text-xs">{isCustomCanvas ? "Draw your own background" : "Page background"}</p>
                   </div>
                   <div className="flex-shrink-0">
                     {isEquipped ? <span className="text-violet-400 text-xs flex items-center gap-0.5 font-bold"><Check className="w-3 h-3" /> On</span>
-                      : isOwned ? <span className="text-emerald-400 text-xs font-semibold">Equip</span>
+                      : isOwned ? <span className="text-emerald-400 text-xs font-semibold">{isCustomCanvas ? "Draw" : "Equip"}</span>
                       : <span className={`text-xs font-bold font-mono ${canAfford ? "text-amber-300" : "text-slate-500"}`}>{bg.price === 0 ? "Free" : `$${bg.price}`}</span>}
                   </div>
                   {isLoading && <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /></div>}
@@ -236,7 +370,93 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
             })}
           </div>
         )}
+
+        {/* Packages */}
+        {tab === "packages" && (
+          <div className="overflow-y-auto p-4 space-y-3">
+            {[...STORE_PACKAGES].sort((a, b) => a.price - b.price).map(pkg => {
+              const isOwned = ownedPackages.includes(pkg.id);
+              const isLoading = buying === pkg.id;
+              const canAfford = wallet.balance >= pkg.price;
+              return (
+                <motion.button key={pkg.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+                  disabled={!!buying || isOwned}
+                  onClick={() => buyPackage(pkg)}
+                  className={`relative w-full text-left p-4 rounded-2xl border transition-all ${isOwned ? "border-emerald-500/50 bg-emerald-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-white font-semibold text-sm">{pkg.label}</p>
+                      <p className="text-slate-400 text-xs mt-1">{pkg.description}</p>
+                    </div>
+                    <div className="text-right">
+                      {isOwned
+                        ? <span className="text-emerald-400 text-xs font-semibold">Owned</span>
+                        : <span className={`text-xs font-bold font-mono ${canAfford ? "text-amber-300" : "text-slate-500"}`}>${pkg.price}</span>}
+                    </div>
+                  </div>
+                  <div className="mt-3 text-[11px] text-slate-500">
+                    Includes: {pkg.fontUnlocks.length} font, {pkg.avatarBgUnlocks.length} avatar BG, {pkg.siteBgUnlocks.length} site BG
+                  </div>
+                  {isLoading && <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /></div>}
+                  {!isOwned && !canAfford && <div className="absolute top-2 right-2"><Lock className="w-3 h-3 text-slate-600" /></div>}
+                </motion.button>
+              );
+            })}
+          </div>
+        )}
       </motion.div>
+
+      {showDrawModal && (
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm p-4 flex items-center justify-center" onClick={() => setShowDrawModal(false)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-xl bg-slate-900 border border-white/10 rounded-3xl p-4 sm:p-5"
+          >
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-white font-bold text-base flex items-center gap-2"><Brush className="w-4 h-4 text-cyan-300" /> Draw Your Background</h3>
+              <button onClick={() => setShowDrawModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+            </div>
+
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <label className="text-slate-300 text-xs">Color</label>
+              <input type="color" value={brushColor} onChange={(e) => setBrushColor(e.target.value)} className="w-10 h-8 p-0 border-none bg-transparent" />
+              <label className="text-slate-300 text-xs">Brush</label>
+              <input type="range" min="2" max="30" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} />
+              <span className="text-slate-400 text-xs">{brushSize}px</span>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-white/10 bg-slate-950">
+              <canvas
+                ref={canvasRef}
+                width={1024}
+                height={576}
+                className="w-full aspect-video touch-none"
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+              />
+            </div>
+
+            <div className="mt-4 flex justify-between gap-3">
+              <button onClick={clearCanvas} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 text-sm hover:bg-slate-700">Clear</button>
+              <button
+                onClick={saveCustomBackground}
+                disabled={buying === "custom-canvas-save"}
+                className="px-4 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/30 disabled:opacity-50"
+              >
+                {buying === "custom-canvas-save" ? "Saving..." : "Save & Equip"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

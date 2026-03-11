@@ -70,6 +70,17 @@
       },
       "description": "List of owned site background IDs"
     },
+    "owned_packages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of owned premium package IDs"
+    },
+    "site_background_custom": {
+      "type": "string",
+      "description": "Custom drawn site background image (data URL)"
+    },
     "auth_user_id": {
       "type": "string",
       "description": "The Supabase auth user ID linked to this wallet"

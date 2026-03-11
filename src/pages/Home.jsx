@@ -204,7 +204,7 @@ export default function Home() {
     return <AuthScreen onAuthenticated={handleAuthComplete} />;
   }
 
-  const siteBgStyle = getSiteBgStyle(myWallet?.site_background);
+  const siteBgStyle = getSiteBgStyle(myWallet?.site_background, myWallet?.site_background_custom);
 
   return (
     <div className="min-h-screen p-4 pb-20 md:p-8" style={siteBgStyle}>

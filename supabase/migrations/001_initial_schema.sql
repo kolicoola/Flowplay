@@ -23,8 +23,13 @@ CREATE TABLE IF NOT EXISTS wallets (
   avatar_hair             TEXT,
   owned_hairs             JSONB DEFAULT '[]',
   site_background         TEXT,
-  owned_site_backgrounds  JSONB DEFAULT '[]'
+  owned_site_backgrounds  JSONB DEFAULT '[]',
+  owned_packages          JSONB DEFAULT '[]',
+  site_background_custom  TEXT
 );
+
+ALTER TABLE wallets ADD COLUMN IF NOT EXISTS owned_packages JSONB DEFAULT '[]';
+ALTER TABLE wallets ADD COLUMN IF NOT EXISTS site_background_custom TEXT;
 
 ALTER TABLE wallets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "wallets: public read"   ON wallets;

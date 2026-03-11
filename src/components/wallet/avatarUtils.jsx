@@ -17,6 +17,8 @@ export const FONTS = [
   { id: "narrow",     label: "📐 Narrow",       price: 350,  fontFamily: "'Arial Narrow', sans-serif", fontWeight: "700" },
   { id: "wide",       label: "📏 Wide",         price: 400,  fontFamily: "inherit", letterSpacing: "0.15em" },
   { id: "pixel",      label: "👾 Pixel",        price: 600,  fontFamily: "'Lucida Console', 'Courier New', monospace", fontWeight: "900" },
+  { id: "diamond_serif", label: "💎 Diamond Serif", price: 85000, fontFamily: "'Times New Roman', serif", fontWeight: "700", letterSpacing: "0.08em" },
+  { id: "duma_god",      label: "⚜ Duma God Font",  price: 250000, fontFamily: "'Impact', 'Arial Black', sans-serif", fontWeight: "900", letterSpacing: "0.12em" },
 ];
 
 export function getFontStyle(fontId) {
@@ -286,6 +288,36 @@ export const SITE_BACKGROUNDS = [
       filter: "brightness(0.88) saturate(0.9)"
     }
   },
+  {
+    id: "diamond_vault",
+    label: "💎 Diamond Vault",
+    price: 120000,
+    style: {
+      background: "linear-gradient(135deg, #020617, #0f172a, #155e75, #67e8f9, #cffafe)",
+      backgroundSize: "250% 250%",
+      animation: "logoPan 16s ease-in-out infinite, logoPulse 8s ease-in-out infinite",
+      filter: "brightness(0.95) saturate(1.15)"
+    }
+  },
+  {
+    id: "duma_throne",
+    label: "👑 Duma Throne",
+    price: 300000,
+    style: {
+      background: "linear-gradient(135deg, #120100, #3f0909, #7c2d12, #ca8a04, #fde68a)",
+      backgroundSize: "260% 260%",
+      animation: "logoPan 14s ease-in-out infinite, logoHue 22s linear infinite, logoPulse 7s ease-in-out infinite",
+      filter: "brightness(1.02) saturate(1.18)"
+    }
+  },
+  {
+    id: "custom_canvas",
+    label: "🎨 My Drawing",
+    price: 5000000,
+    style: {
+      background: "linear-gradient(135deg, #111827, #1f2937)"
+    }
+  },
 ];
 
 export const AVATAR_BACKGROUNDS = [
@@ -354,6 +386,59 @@ export const AVATAR_BACKGROUNDS = [
       filter: "saturate(1.25) brightness(1.08)"
     }
   },
+  {
+    id: "diamond_dust",
+    label: "💠 Diamond Dust",
+    price: 140000,
+    style: {
+      background: "linear-gradient(140deg, #ecfeff, #bae6fd, #67e8f9, #0ea5e9, #0284c7)",
+      backgroundSize: "250% 250%",
+      animation: "logoPan 16s ease-in-out infinite, logoPulse 8s ease-in-out infinite",
+      filter: "brightness(1.05) saturate(1.15)"
+    }
+  },
+  {
+    id: "duma_godflame",
+    label: "🔥 Duma Godflame",
+    price: 350000,
+    style: {
+      background: "linear-gradient(140deg, #1c0700, #7f1d1d, #f97316, #facc15, #fff7ed)",
+      backgroundSize: "280% 280%",
+      animation: "logoPan 12s ease-in-out infinite, logoHue 24s linear infinite, logoPulse 6s ease-in-out infinite",
+      filter: "brightness(1.08) saturate(1.2)"
+    }
+  },
+];
+
+export const STORE_PACKAGES = [
+  {
+    id: "diamond_package",
+    label: "💎 Diamond Package",
+    price: 750000,
+    description: "Luxury unlock set for fonts and backgrounds.",
+    fontUnlocks: ["diamond_serif"],
+    avatarBgUnlocks: ["diamond_dust"],
+    siteBgUnlocks: ["diamond_vault"],
+    autoEquip: {
+      avatar_font: "diamond_serif",
+      avatar_background: "diamond_dust",
+      site_background: "diamond_vault",
+    },
+  },
+  {
+    id: "duma_godmode_package",
+    label: "👑 Duma God Mode Package",
+    price: 2500000,
+    description: "The ultimate Duma collection with mythic styling.",
+    fontUnlocks: ["duma_god"],
+    avatarBgUnlocks: ["duma_godflame"],
+    siteBgUnlocks: ["duma_throne"],
+    autoEquip: {
+      avatar_font: "duma_god",
+      avatar_background: "duma_godflame",
+      site_background: "duma_throne",
+    },
+  },
 ];
 
 export function getAvatarBgStyle(bgId, fallbackColor) {
@@ -364,7 +449,15 @@ export function getAvatarBgStyle(bgId, fallbackColor) {
   return found.style;
 }
 
-export function getSiteBgStyle(bgId) {
+export function getSiteBgStyle(bgId, customImageData) {
+  if (bgId === "custom_canvas" && customImageData) {
+    return {
+      backgroundImage: `url(${customImageData})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    };
+  }
   const found = SITE_BACKGROUNDS.find(b => b.id === bgId);
   if (!found) return SITE_BACKGROUNDS[0].style;
   return found.style;
