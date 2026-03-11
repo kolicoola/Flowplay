@@ -7,7 +7,7 @@ const ENTITY_TABLE = {
   Charity:         "charities",
   CoinFlip:        "coin_flips",
   Investment:      "investments",
-  Upgrade:         "upgrades",
+  Upgrade:         "upgrade1",
   AssetDefinition: "asset_definitions",
   AssetPrice:      "asset_prices",
   Profile:         "profiles",
