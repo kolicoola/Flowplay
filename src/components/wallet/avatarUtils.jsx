@@ -269,9 +269,10 @@ export const SITE_BACKGROUNDS = [
     label: "☀️ Solar Flare",
     price: 45000,
     style: {
-      background: "linear-gradient(140deg, #1f0a00, #7c2d12, #ea580c, #facc15)",
+      background: "linear-gradient(140deg, #160701, #5f2411, #c2410c, #d97706)",
       backgroundSize: "240% 240%",
-      animation: "logoPan 12s ease-in-out infinite, logoPulse 4.5s ease-in-out infinite"
+      animation: "logoPan 14s ease-in-out infinite, logoPulse 8s ease-in-out infinite",
+      filter: "brightness(0.9) saturate(0.92)"
     }
   },
   {
@@ -279,9 +280,10 @@ export const SITE_BACKGROUNDS = [
     label: "🧊 Glacier Drift",
     price: 90000,
     style: {
-      background: "linear-gradient(135deg, #031525, #0f3b5f, #1d84b5, #c7f9ff)",
+      background: "linear-gradient(135deg, #020f1b, #0b2a46, #155f87, #7fc4d8)",
       backgroundSize: "260% 260%",
-      animation: "logoPan 18s ease-in-out infinite, logoFloat 8s ease-in-out infinite, logoPulse 7s ease-in-out infinite"
+      animation: "logoPan 20s ease-in-out infinite, logoFloat 10s ease-in-out infinite, logoPulse 10s ease-in-out infinite",
+      filter: "brightness(0.88) saturate(0.9)"
     }
   },
 ];
@@ -319,6 +321,36 @@ export const AVATAR_BACKGROUNDS = [
   { id: "obsidian",    label: "🖤 Obsidian",     price: 3000, style: { background: "linear-gradient(135deg, #000000, #1a1a2e, #16213e, #0f3460, #533483)" } },
   { id: "celestial",   label: "☀️ Celestial",    price: 4000, style: { background: "linear-gradient(135deg, #ffd700, #ff8c00, #ff4500, #8b0000, #4b0082, #000080, #ffd700)" } },
   { id: "godmode",     label: "👑 God Mode",     price: 5000, style: { background: "linear-gradient(135deg, #fff7ae, #f5c518, #e8a000, #ff6a00, #ee0979, #9b59b6, #2980b9, #1abc9c, #f5c518, #fff7ae)" } },
+  {
+    id: "edo_nocturne",
+    label: "🏯 Edo Nocturne",
+    price: 20000,
+    style: {
+      background: "linear-gradient(145deg, #090b12, #1a1030, #5b1a3f, #b91c1c)",
+      backgroundSize: "230% 230%",
+      animation: "logoPan 16s ease-in-out infinite, logoHue 28s linear infinite"
+    }
+  },
+  {
+    id: "void_crown",
+    label: "👑 Void Crown",
+    price: 65000,
+    style: {
+      background: "linear-gradient(140deg, #04020f, #16092e, #2b1454, #0f4c5c)",
+      backgroundSize: "260% 260%",
+      animation: "logoPan 20s ease-in-out infinite, logoPulse 9s ease-in-out infinite, logoFloat 9s ease-in-out infinite"
+    }
+  },
+  {
+    id: "phoenix_relic",
+    label: "🔥 Phoenix Relic",
+    price: 100000,
+    style: {
+      background: "linear-gradient(140deg, #130404, #4a1208, #9a3412, #c2410c, #f59e0b)",
+      backgroundSize: "280% 280%",
+      animation: "logoPan 13s ease-in-out infinite, logoPulse 6.5s ease-in-out infinite"
+    }
+  },
 ];
 
 export function getAvatarBgStyle(bgId, fallbackColor) {
