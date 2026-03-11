@@ -254,6 +254,36 @@ export const SITE_BACKGROUNDS = [
   { id: "ultraviolet",label: "🔬 Ultraviolet",      price: 1100, style: { background: "linear-gradient(135deg, #0a0020, #1a0040, #3d0080, #6600cc, #9900ff)" } },
   { id: "supernova",  label: "💥 Supernova",        price: 2500, style: { background: "linear-gradient(135deg, #000000, #1a0000, #4d0000, #cc3300, #ff6600, #ffcc00)" } },
   { id: "abyss",      label: "🕳️ The Abyss",        price: 3500, style: { background: "linear-gradient(135deg, #000000, #000005, #00000a, #00000f, #000000)" } },
+  {
+    id: "shinjuku_neon",
+    label: "🏮 Shinjuku Neon",
+    price: 10000,
+    style: {
+      background: "linear-gradient(135deg, #06090f, #1a103f, #8b0d57, #0e7490)",
+      backgroundSize: "220% 220%",
+      animation: "logoPan 14s ease-in-out infinite, logoPulse 6s ease-in-out infinite, logoHue 24s linear infinite"
+    }
+  },
+  {
+    id: "solar_flare",
+    label: "☀️ Solar Flare",
+    price: 45000,
+    style: {
+      background: "linear-gradient(140deg, #1f0a00, #7c2d12, #ea580c, #facc15)",
+      backgroundSize: "240% 240%",
+      animation: "logoPan 12s ease-in-out infinite, logoPulse 4.5s ease-in-out infinite"
+    }
+  },
+  {
+    id: "glacier_drift",
+    label: "🧊 Glacier Drift",
+    price: 90000,
+    style: {
+      background: "linear-gradient(135deg, #031525, #0f3b5f, #1d84b5, #c7f9ff)",
+      backgroundSize: "260% 260%",
+      animation: "logoPan 18s ease-in-out infinite, logoFloat 8s ease-in-out infinite, logoPulse 7s ease-in-out infinite"
+    }
+  },
 ];
 
 export const AVATAR_BACKGROUNDS = [

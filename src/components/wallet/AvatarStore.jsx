@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
-import { ShoppingBag, X, Check, Lock, Type, Palette, Sparkles, Globe } from "lucide-react";
+import { ShoppingBag, X, Check, Lock, Type, Palette, Globe } from "lucide-react";
 import { toast } from "sonner";
 import {
-  AVATAR_BACKGROUNDS, FONTS, LETTER_COLORS, HAIRSTYLES, SITE_BACKGROUNDS,
+  AVATAR_BACKGROUNDS, FONTS, LETTER_COLORS, SITE_BACKGROUNDS,
   getAvatarBgStyle, getFontStyle, getLetterColorStyle, getAvatarStyle, HairOverlay
 } from "./avatarUtils";
 
@@ -14,7 +14,6 @@ const TABS = [
   { id: "backgrounds", label: "Avatar BG",    icon: ShoppingBag },
   { id: "fonts",       label: "Fonts",         icon: Type },
   { id: "lettercolor", label: "Letter",        icon: Palette },
-  { id: "hair",        label: "Hair",          icon: Sparkles },
   { id: "sitebg",      label: "Site BG",       icon: Globe },
 ];
 
@@ -25,7 +24,6 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
   const owned = wallet.owned_backgrounds || [];
   const ownedFonts = wallet.owned_fonts || [];
   const ownedLetterColors = wallet.owned_letter_colors || [];
-  const ownedHairs = wallet.owned_hairs || [];
   const ownedSiteBgs = wallet.owned_site_backgrounds || [];
   const current = wallet.avatar_background || "default";
   const currentFont = wallet.avatar_font || "default";
@@ -198,39 +196,6 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
                   {isEquipped ? <span className="text-violet-400 text-xs flex items-center gap-0.5 font-bold"><Check className="w-3 h-3" /> On</span>
                     : isOwned ? <span className="text-emerald-400 text-xs font-semibold">Equip</span>
                     : <span className={`text-xs font-bold font-mono ${canAfford ? "text-amber-300" : "text-slate-500"}`}>${lc.price}</span>}
-                  {isLoading && <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /></div>}
-                  {!isOwned && !canAfford && <div className="absolute top-2 right-2"><Lock className="w-3 h-3 text-slate-600" /></div>}
-                </motion.button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Hairstyles */}
-        {tab === "hair" && (
-          <div className="overflow-y-auto p-4 grid grid-cols-3 gap-3">
-            {[...HAIRSTYLES].sort((a, b) => a.price - b.price).map(hair => {
-              const isOwned = ownedHairs.includes(hair.id) || hair.price === 0;
-              const isEquipped = currentHair === hair.id;
-              const isLoading = buying === hair.id;
-              const canAfford = wallet.balance >= hair.price;
-              return (
-                <motion.button key={hair.id} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                  disabled={!!buying}
-                  onClick={() => isOwned ? equip("avatar_hair", hair.id, hair.label) : buy("avatar_hair", "owned_hairs", hair.id, hair.price, hair.label)}
-                  className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
-                >
-                  <div className="relative inline-flex flex-col items-center mt-3">
-                    <HairOverlay hairId={hair.id} size="md" />
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg"
-                      style={{ ...avatarBgForPreview, ...fontStyleForPreview }}>
-                      <span style={letterStyle}>{wallet.username?.[0]?.toUpperCase()}</span>
-                    </div>
-                  </div>
-                  <span className="text-white text-xs font-medium text-center leading-tight">{hair.label}</span>
-                  {isEquipped ? <span className="text-violet-400 text-xs flex items-center gap-0.5 font-bold"><Check className="w-3 h-3" /> On</span>
-                    : isOwned ? <span className="text-emerald-400 text-xs font-semibold">Equip</span>
-                    : <span className={`text-xs font-bold font-mono ${canAfford ? "text-amber-300" : "text-slate-500"}`}>{hair.price === 0 ? "Free" : `$${hair.price}`}</span>}
                   {isLoading && <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /></div>}
                   {!isOwned && !canAfford && <div className="absolute top-2 right-2"><Lock className="w-3 h-3 text-slate-600" /></div>}
                 </motion.button>
