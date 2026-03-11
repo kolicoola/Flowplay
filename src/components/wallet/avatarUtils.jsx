@@ -326,9 +326,10 @@ export const AVATAR_BACKGROUNDS = [
     label: "🏯 Edo Nocturne",
     price: 20000,
     style: {
-      background: "linear-gradient(145deg, #090b12, #1a1030, #5b1a3f, #b91c1c)",
-      backgroundSize: "230% 230%",
-      animation: "logoPan 16s ease-in-out infinite, logoHue 28s linear infinite"
+      background: "linear-gradient(145deg, #1a0c32, #5b21b6, #db2777, #ef4444, #f59e0b)",
+      backgroundSize: "250% 250%",
+      animation: "logoPan 14s ease-in-out infinite, logoHue 20s linear infinite, logoPulse 7s ease-in-out infinite",
+      filter: "saturate(1.2) brightness(1.05)"
     }
   },
   {
@@ -336,9 +337,10 @@ export const AVATAR_BACKGROUNDS = [
     label: "👑 Void Crown",
     price: 65000,
     style: {
-      background: "linear-gradient(140deg, #04020f, #16092e, #2b1454, #0f4c5c)",
+      background: "linear-gradient(140deg, #1e1b4b, #7c3aed, #ec4899, #06b6d4, #22c55e)",
       backgroundSize: "260% 260%",
-      animation: "logoPan 20s ease-in-out infinite, logoPulse 9s ease-in-out infinite, logoFloat 9s ease-in-out infinite"
+      animation: "logoPan 18s ease-in-out infinite, logoPulse 7s ease-in-out infinite, logoFloat 9s ease-in-out infinite, logoHue 24s linear infinite",
+      filter: "saturate(1.22) brightness(1.06)"
     }
   },
   {
@@ -346,9 +348,10 @@ export const AVATAR_BACKGROUNDS = [
     label: "🔥 Phoenix Relic",
     price: 100000,
     style: {
-      background: "linear-gradient(140deg, #130404, #4a1208, #9a3412, #c2410c, #f59e0b)",
+      background: "linear-gradient(140deg, #7f1d1d, #dc2626, #f97316, #facc15, #fb7185)",
       backgroundSize: "280% 280%",
-      animation: "logoPan 13s ease-in-out infinite, logoPulse 6.5s ease-in-out infinite"
+      animation: "logoPan 11s ease-in-out infinite, logoPulse 5.5s ease-in-out infinite, logoHue 26s linear infinite",
+      filter: "saturate(1.25) brightness(1.08)"
     }
   },
 ];
