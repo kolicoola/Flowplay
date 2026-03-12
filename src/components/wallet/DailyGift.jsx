@@ -8,11 +8,16 @@ const GIFT_KEY_PREFIX = "payflow_daily_gift_";
 const GIFT_AMOUNT = 10000;
 const COOLDOWN = 24 * 60 * 60 * 1000; // exactly 24 hours
 
-export default function DailyGift({ wallet, onRefresh }) {
+function getTimeLeft(lastClaim, speedMultiplier) {
+  const speed = Math.max(1, Number(speedMultiplier || 1));
+  const elapsed = (Date.now() - lastClaim) * speed;
+  return Math.max(0, COOLDOWN - elapsed);
+}
+
+export default function DailyGift({ wallet, onRefresh, speedMultiplier = 1 }) {
   const key = GIFT_KEY_PREFIX + wallet.id;
   const lastClaim = parseInt(localStorage.getItem(key) || "0");
-  const now = Date.now();
-  const timeLeft = Math.max(0, COOLDOWN - (now - lastClaim));
+  const timeLeft = getTimeLeft(lastClaim, speedMultiplier);
   const canClaim = timeLeft === 0;
 
   const [claiming, setClaiming] = useState(false);
@@ -22,7 +27,7 @@ export default function DailyGift({ wallet, onRefresh }) {
   useEffect(() => {
     if (canClaim) return;
     const tick = () => {
-      const tl = Math.max(0, COOLDOWN - (Date.now() - parseInt(localStorage.getItem(key) || "0")));
+      const tl = getTimeLeft(parseInt(localStorage.getItem(key) || "0"), speedMultiplier);
       const h = Math.floor(tl / 3600000);
       const m = Math.floor((tl % 3600000) / 60000);
       const s = Math.floor((tl % 60000) / 1000);
@@ -31,12 +36,12 @@ export default function DailyGift({ wallet, onRefresh }) {
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [canClaim, key]);
+  }, [canClaim, key, speedMultiplier]);
 
   const handleClaim = async () => {
     if (!canClaim || claiming) return;
     setClaiming(true);
-    await base44.entities.Wallet.update(wallet.id, { balance: wallet.balance + GIFT_AMOUNT });
+    await base44.adjustWalletBalance(wallet.id, GIFT_AMOUNT);
     localStorage.setItem(key, String(Date.now()));
     setShowPop(true);
     setTimeout(() => setShowPop(false), 2500);

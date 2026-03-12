@@ -3,8 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { getSiteBgStyle } from "../components/wallet/avatarUtils";
-import { UPGRADES } from "../components/wallet/UpgradeShop";
+import { getUpgradeEffects, applyFriendshipIncomingBonus } from "../components/wallet/upgradeEffects";
 
 import AuthScreen from "../components/wallet/AuthScreen";
 import BalanceCard from "../components/wallet/BalanceCard";
@@ -42,10 +43,11 @@ export default function Home() {
   const [myWallet, setMyWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [ownedUpgrades, setOwnedUpgrades] = useState(null);
+  const [ownedUpgrades, setOwnedUpgrades] = useState([]);
+  const [upgradeClock, setUpgradeClock] = useState(Date.now());
 
   const walletRef = useRef(null);
-  const passiveTimerRef = useRef(null);
+  const transactionEventLockRef = useRef(new Set());
 
   const loadWallet = async () => {
     if (!isSupabaseConfigured || !supabase) {
@@ -87,10 +89,8 @@ export default function Home() {
 
   const loadUpgrades = async (walletId) => {
     const all = await base44.entities.Upgrade.filter({ wallet_id: walletId });
-    const map = {};
-    for (const u of all) map[u.upgrade_id] = u;
-    setOwnedUpgrades(map);
-    return map;
+    setOwnedUpgrades(all);
+    return all;
   };
 
   const loadTransactions = async (walletId) => {
@@ -99,6 +99,11 @@ export default function Home() {
   };
 
   useEffect(() => { loadWallet(); }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setUpgradeClock(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // Check for QR scan: ?pay=WALLET_ID in URL → open QR dialog on pay tab
   useEffect(() => {
@@ -109,34 +114,7 @@ export default function Home() {
     }
   }, [myWallet]);
 
-  // Passive income ticker
-  useEffect(() => {
-    if (!ownedUpgrades || !myWallet) return;
-    if (passiveTimerRef.current) clearInterval(passiveTimerRef.current);
-
-    const passiveUpgrades = UPGRADES.filter((u) => u.type === "passive" && ownedUpgrades[u.id]);
-    if (passiveUpgrades.length === 0) return;
-
-    const totalPerSec = passiveUpgrades.reduce((sum, u) => sum + u.ratePerSec, 0);
-    const batchAmount = totalPerSec * 5;
-
-    passiveTimerRef.current = setInterval(async () => {
-      const current = walletRef.current;
-      if (!current) return;
-      try {
-        const updated = await base44.adjustWalletBalance(current.id, batchAmount);
-        walletRef.current = updated;
-        setMyWallet(updated);
-      } catch (e) {
-        // Wallet was deleted — stop the timer and clear local state
-        clearInterval(passiveTimerRef.current);
-        walletRef.current = null;
-        setMyWallet(null);
-      }
-    }, 5000);
-
-    return () => clearInterval(passiveTimerRef.current);
-  }, [ownedUpgrades]);
+  const upgradeEffects = getUpgradeEffects(ownedUpgrades, upgradeClock);
 
   const isDevMode = myWallet?.username?.toLowerCase() === "payflow";
 
@@ -159,6 +137,7 @@ export default function Home() {
       walletRef.current = found;
     }
     await loadTransactions(myWallet.id);
+    return found;
   };
 
   const refreshUpgrades = async () => {
@@ -180,12 +159,41 @@ export default function Home() {
 
   useEffect(() => {
     if (!myWallet?.id) return;
-    const refresh = () => refreshData();
+    const onWalletEvent = () => refreshData();
+    const onSimpleRefresh = () => refreshData();
+    const onTransactionEvent = async (event) => {
+      const type = event?.type || event?.operation;
+      const tx = event?.data || event?.record;
+
+      if (type === "create" && tx?.to_wallet_id === myWallet.id && tx?.id) {
+        if (!transactionEventLockRef.current.has(tx.id)) {
+          transactionEventLockRef.current.add(tx.id);
+          try {
+            const bonusApplied = await applyFriendshipIncomingBonus(myWallet.id, Number(tx.amount || 0));
+            if (bonusApplied) {
+              toast.success("Friendship bonus! Incoming payment doubled.");
+            }
+          } catch (e) {
+            console.error("Failed to apply friendship bonus:", e);
+          } finally {
+            await loadUpgrades(myWallet.id);
+            await refreshData();
+          }
+        }
+        return;
+      }
+
+      await refreshData();
+    };
+
     const unsubs = [
-      base44.entities.Wallet.subscribe(refresh),
-      base44.entities.Transaction.subscribe(refresh),
-      base44.entities.CoinFlip.subscribe(refresh),
-      base44.entities.Charity.subscribe(refresh),
+      base44.entities.Wallet.subscribe(onWalletEvent),
+      base44.entities.Transaction.subscribe(onTransactionEvent),
+      base44.entities.CoinFlip.subscribe(onSimpleRefresh),
+      base44.entities.Charity.subscribe(onSimpleRefresh),
+      base44.entities.Upgrade.subscribe(async () => {
+        await loadUpgrades(myWallet.id);
+      }),
     ];
     return () => unsubs.forEach((u) => u?.());
   }, [myWallet?.id]);
@@ -209,7 +217,7 @@ export default function Home() {
     <div className="min-h-screen p-4 pb-20 md:p-8" style={siteBgStyle}>
       {/* Collector dollars float over everything */}
       {ownedUpgrades && (
-        <CollectorOverlay wallet={myWallet} ownedUpgrades={ownedUpgrades} onRefresh={refreshData} />
+        <CollectorOverlay wallet={myWallet} upgradeEffects={upgradeEffects} onRefresh={refreshData} />
       )}
 
       <div className="max-w-lg mx-auto space-y-6">
@@ -224,7 +232,7 @@ export default function Home() {
           onUpgrade={() => setShowUpgrade(true)}
         />
 
-        <DailyGift wallet={myWallet} onRefresh={refreshData} />
+        <DailyGift wallet={myWallet} onRefresh={refreshData} speedMultiplier={upgradeEffects.speedMultiplier} />
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
           <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
@@ -238,6 +246,7 @@ export default function Home() {
         <PayByName
           wallet={myWallet}
           onPaymentComplete={refreshData}
+          upgradeEffects={upgradeEffects}
           open={showPayByName}
           onOpenChange={setShowPayByName}
         />
@@ -255,6 +264,7 @@ export default function Home() {
             onClose={() => setShowInvest(false)}
             onRefresh={refreshData}
             isDevMode={isDevMode}
+            upgradeEffects={upgradeEffects}
           />
         )}
         {showCoinFlip && (
@@ -262,6 +272,7 @@ export default function Home() {
             wallet={myWallet}
             onClose={() => setShowCoinFlip(false)}
             onRefresh={refreshData}
+            upgradeEffects={upgradeEffects}
           />
         )}
         {showStore && (
@@ -276,8 +287,8 @@ export default function Home() {
             wallet={myWallet}
             onClose={() => setShowUpgrade(false)}
             onRefresh={refreshData}
-            ownedUpgrades={ownedUpgrades}
             onBuy={refreshUpgrades}
+            upgradeEffects={upgradeEffects}
           />
         )}
         <QRCodeView
@@ -285,6 +296,7 @@ export default function Home() {
           open={showQR}
           onOpenChange={setShowQR}
           onPaymentComplete={refreshData}
+          upgradeEffects={upgradeEffects}
         />
       </div>
     </div>

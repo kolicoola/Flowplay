@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { UPGRADES } from "./UpgradeShop";
 
 function FloatingDollar({ id, amount, x, y, isBonus, onCollect }) {
   return (
@@ -23,7 +22,7 @@ function FloatingDollar({ id, amount, x, y, isBonus, onCollect }) {
             : "bg-emerald-500 text-white border-emerald-400"
         }`}
       >
-        {isBonus ? "🎁 +$1,500" : `+$${amount}`}
+        {isBonus ? "🎁 +$1,500" : `Tips +$${amount}`}
       </motion.div>
     </motion.button>
   );
@@ -42,38 +41,42 @@ function spawnPos() {
   return { x, y };
 }
 
-export default function CollectorOverlay({ wallet, ownedUpgrades, onRefresh }) {
+export default function CollectorOverlay({ wallet, upgradeEffects, onRefresh }) {
   const [floatingDollars, setFloatingDollars] = useState([]);
 
-  // Collector upgrades
+  // Permanent tips generators.
   useEffect(() => {
-    if (!ownedUpgrades) return;
+    const generators = upgradeEffects?.tipGenerators || [];
+    const speed = Math.max(1, Number(upgradeEffects?.speedMultiplier || 1));
+    if (generators.length === 0) return;
+
     const timers = [];
 
-    UPGRADES.filter((u) => u.type === "collector").forEach((upg) => {
-      if (!ownedUpgrades[upg.id]) return;
+    generators.forEach((tipGen) => {
+      const intervalMs = Math.max(1000, (Number(tipGen.intervalSec || 0) * 1000) / speed);
       const timer = setInterval(() => {
         const { x, y } = spawnPos();
-        const id = `${upg.id}_${Date.now()}`;
-        setFloatingDollars((prev) => [...prev, { id, amount: upg.amount, x, y, isBonus: false }]);
+        const id = `${tipGen.id}_${Date.now()}`;
+        setFloatingDollars((prev) => [...prev, { id, amount: tipGen.amount, x, y, isBonus: false }]);
         setTimeout(() => setFloatingDollars((prev) => prev.filter((d) => d.id !== id)), 12000);
-      }, upg.intervalSec * 1000);
+      }, intervalMs);
       timers.push(timer);
     });
 
     return () => timers.forEach(clearInterval);
-  }, [ownedUpgrades]);
+  }, [upgradeEffects]);
 
   // Bonus $1500 gift every 10 minutes — always active, no upgrade needed
   useEffect(() => {
+    const speed = Math.max(1, Number(upgradeEffects?.speedMultiplier || 1));
     const timer = setInterval(() => {
       const { x, y } = spawnPos();
       const id = `bonus_gift_${Date.now()}`;
       setFloatingDollars((prev) => [...prev, { id, amount: BONUS_GIFT_AMOUNT, x, y, isBonus: true }]);
       setTimeout(() => setFloatingDollars((prev) => prev.filter((d) => d.id !== id)), 30000);
-    }, BONUS_GIFT_INTERVAL);
+    }, BONUS_GIFT_INTERVAL / speed);
     return () => clearInterval(timer);
-  }, []);
+  }, [upgradeEffects?.speedMultiplier]);
 
   const handleCollect = async (id, amount) => {
     setFloatingDollars((prev) => prev.filter((d) => d.id !== id));

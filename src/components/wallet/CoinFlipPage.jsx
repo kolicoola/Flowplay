@@ -5,6 +5,7 @@ import { X, Coins, Loader2, Trophy, Clock, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { getAvatarStyle } from "./avatarUtils";
+import { getUpgradeEffects } from "./upgradeEffects";
 
 function AvatarBubble({ wallet, size = "w-9 h-9", text = "sm" }) {
   return (
@@ -65,7 +66,7 @@ function CoinAnimation({ result, amount, onDone }) {
   );
 }
 
-export default function CoinFlipPage({ wallet, onClose, onRefresh }) {
+export default function CoinFlipPage({ wallet, onClose, onRefresh, upgradeEffects }) {
   const [flips, setFlips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -76,6 +77,8 @@ export default function CoinFlipPage({ wallet, onClose, onRefresh }) {
   const [walletBalance, setWalletBalance] = useState(wallet.balance);
   const [flipAnim, setFlipAnim] = useState(null); // { result, amount }
   const watchedFlipRef = useRef(null); // flip we created and are watching
+
+  const myWinChance = Math.max(0.5, Number(upgradeEffects?.coinWinChance || 0.5));
 
   const loadData = async () => {
     const [all, walletList] = await Promise.all([
@@ -121,7 +124,7 @@ export default function CoinFlipPage({ wallet, onClose, onRefresh }) {
     if (isNaN(amt) || amt <= 0) { toast.error("Enter a valid amount"); return; }
     if (amt > walletBalance) { toast.error("Insufficient balance"); return; }
     setCreating(true);
-    await base44.entities.Wallet.update(wallet.id, { balance: walletBalance - amt });
+    await base44.adjustWalletBalance(wallet.id, -amt);
     const newFlip = await base44.entities.CoinFlip.create({
       creator_wallet_id: wallet.id,
       creator_username: wallet.username,
@@ -142,17 +145,27 @@ export default function CoinFlipPage({ wallet, onClose, onRefresh }) {
     if (walletBalance < flip.amount) { toast.error("Insufficient balance"); return; }
     setJoiningId(flip.id);
 
-    await base44.entities.Wallet.update(wallet.id, { balance: walletBalance - flip.amount });
+    await base44.adjustWalletBalance(wallet.id, -flip.amount);
 
-    const creatorWins = Math.random() < 0.5;
+    const [creatorUpgrades, joinerUpgrades] = await Promise.all([
+      base44.entities.Upgrade.filter({ wallet_id: flip.creator_wallet_id }),
+      base44.entities.Upgrade.filter({ wallet_id: wallet.id }),
+    ]);
+
+    const creatorLucky = getUpgradeEffects(creatorUpgrades).luckyActive;
+    const joinerLucky = getUpgradeEffects(joinerUpgrades).luckyActive;
+
+    let creatorWinChance = 0.5;
+    if (creatorLucky) creatorWinChance += 0.1;
+    if (joinerLucky) creatorWinChance -= 0.1;
+    creatorWinChance = Math.min(0.75, Math.max(0.25, creatorWinChance));
+
+    const creatorWins = Math.random() < creatorWinChance;
     const winner = creatorWins ? flip.creator_wallet_id : wallet.id;
     const winnerName = creatorWins ? flip.creator_username : wallet.username;
     const totalPot = flip.amount * 2;
 
-    const winnerWallet = allWallets[winner];
-    if (winnerWallet) {
-      await base44.entities.Wallet.update(winner, { balance: (winnerWallet.balance || 0) + totalPot });
-    }
+    await base44.adjustWalletBalance(winner, totalPot);
 
     await base44.entities.CoinFlip.update(flip.id, {
       joiner_wallet_id: wallet.id,
@@ -170,10 +183,7 @@ export default function CoinFlipPage({ wallet, onClose, onRefresh }) {
   };
 
   const handleCancelFlip = async (flip) => {
-    const creatorW = allWallets[flip.creator_wallet_id];
-    if (creatorW) {
-      await base44.entities.Wallet.update(flip.creator_wallet_id, { balance: (creatorW.balance || 0) + flip.amount });
-    }
+    await base44.adjustWalletBalance(flip.creator_wallet_id, flip.amount);
     await base44.entities.CoinFlip.delete(flip.id);
     toast.success("Flip cancelled, funds refunded.");
     await loadData();
@@ -208,7 +218,7 @@ export default function CoinFlipPage({ wallet, onClose, onRefresh }) {
             <div className="flex items-center gap-2">
               <Coins className="w-5 h-5 text-amber-400" />
               <h2 className="text-white font-bold text-lg">Coin Flip</h2>
-              <span className="text-xs text-amber-400/80 bg-amber-500/10 px-2 py-0.5 rounded-full">50/50</span>
+              <span className="text-xs text-amber-400/80 bg-amber-500/10 px-2 py-0.5 rounded-full">{Math.round(myWinChance * 100)}/{100 - Math.round(myWinChance * 100)}</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-slate-400 text-sm font-mono">$<span className="text-white font-bold">{walletBalance?.toFixed(2)}</span></span>

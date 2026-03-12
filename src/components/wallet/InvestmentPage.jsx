@@ -81,13 +81,17 @@ function fmt(n) {
 }
 
 // ─── Asset Detail ─────────────────────────────────────────────────────────────
-function AssetDetail({ asset, priceData, myInvestment, wallet, onBack, onBuy, onSell }) {
+function AssetDetail({ asset, priceData, myInvestment, wallet, onBack, onBuy, onSell, upgradeEffects }) {
   const [dollarAmt, setDollarAmt] = useState("");
   const [sellAmt, setSellAmt] = useState("");
   const [mode, setMode] = useState("buy");
   const [loading, setLoading] = useState(false);
 
   const price = priceData?.price || 0;
+  const buyDiscount = Math.min(0.25, Math.max(0, Number(upgradeEffects?.marketBuyDiscountPct || 0)));
+  const sellBonus = Math.min(0.25, Math.max(0, Number(upgradeEffects?.marketSellBonusPct || 0)));
+  const buyPrice = price * (1 - buyDiscount);
+  const sellPrice = price * (1 + sellBonus);
   const history = priceData?.history || [];
   const shares = myInvestment?.shares || 0;
   const avgBuy = myInvestment?.avg_buy_price || 0;
@@ -103,7 +107,7 @@ function AssetDetail({ asset, priceData, myInvestment, wallet, onBack, onBuy, on
     if (rawDollars > wallet.balance) { toast.error("Insufficient balance"); return; }
     setLoading(true);
     try {
-      const bought = rawDollars / price;
+      const bought = rawDollars / buyPrice;
       await base44.adjustWalletBalance(wallet.id, -rawDollars);
       const fresh = await base44.entities.Investment.filter({ wallet_id: wallet.id, asset_id: asset.id });
       const existing = fresh[0];
@@ -112,11 +116,11 @@ function AssetDetail({ asset, priceData, myInvestment, wallet, onBack, onBuy, on
         const newAvg = (existing.shares * existing.avg_buy_price + rawDollars) / totalShares;
         await base44.entities.Investment.update(existing.id, { shares: totalShares, avg_buy_price: newAvg });
       } else {
-        await base44.entities.Investment.create({ wallet_id: wallet.id, asset_id: asset.id, shares: bought, avg_buy_price: price });
+        await base44.entities.Investment.create({ wallet_id: wallet.id, asset_id: asset.id, shares: bought, avg_buy_price: buyPrice });
       }
       toast.success(`Bought ${bought.toFixed(6)} ${asset.symbol}!`);
       setDollarAmt("");
-      onBuy(rawDollars, bought, price);
+      onBuy(rawDollars, bought, buyPrice);
     } catch (e) {
       toast.error(e?.message || "Could not complete buy");
     } finally {
@@ -139,7 +143,7 @@ function AssetDetail({ asset, priceData, myInvestment, wallet, onBack, onBuy, on
         return;
       }
 
-      const proceeds = sharesToSell * price;
+      const proceeds = sharesToSell * sellPrice;
       await base44.adjustWalletBalance(wallet.id, proceeds);
 
       const remaining = ownedShares - sharesToSell;
@@ -203,8 +207,9 @@ function AssetDetail({ asset, priceData, myInvestment, wallet, onBack, onBuy, on
             <Input type="number" value={dollarAmt} onChange={e => setDollarAmt(e.target.value)} placeholder="Amount in dollars" className="bg-white/10 border-white/10 text-white placeholder:text-slate-500 pl-7" />
           </div>
           {dollarAmt && !isNaN(parseFloat(dollarAmt)) && parseFloat(dollarAmt) > 0 && (
-            <p className="text-slate-400 text-xs px-1">≈ {(parseFloat(dollarAmt) / price).toFixed(6)} {asset.symbol} @ ${fmt(price)}</p>
+            <p className="text-slate-400 text-xs px-1">≈ {(parseFloat(dollarAmt) / buyPrice).toFixed(6)} {asset.symbol} @ ${fmt(buyPrice)}</p>
           )}
+          {buyDiscount > 0 && <p className="text-emerald-400 text-xs px-1">Lucky Potion active: buy price {Math.round(buyDiscount * 100)}% lower</p>}
           <div className="grid grid-cols-4 gap-2">
             {[10, 50, 100, 500].map(v => (
               <button key={v} onClick={() => setDollarAmt(String(Math.min(v, wallet.balance)))} className="py-1.5 text-xs rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 font-mono">${v}</button>
@@ -224,6 +229,7 @@ function AssetDetail({ asset, priceData, myInvestment, wallet, onBack, onBuy, on
           {shares > 0 && (
             <p className="text-slate-400 text-xs px-1">You own {shares.toFixed(6)} {asset.symbol} ≈ <span className="text-white">${value.toFixed(2)}</span> · avg <span className="text-white">${fmt(avgBuy)}</span></p>
           )}
+          {sellBonus > 0 && <p className="text-emerald-400 text-xs px-1">Lucky Potion active: sell price {Math.round(sellBonus * 100)}% higher</p>}
           <button onClick={handleSell} disabled={loading} className="w-full py-3 rounded-2xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold disabled:opacity-50 flex items-center justify-center gap-2">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingDown className="w-4 h-4" />}
             {sellAmt ? `Sell ${sellAmt} ${asset.symbol}` : `Sell All ${asset.symbol}`}
@@ -519,7 +525,7 @@ function DevAssetEditor({ allAssets, onClose, onRefresh }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function InvestmentPage({ wallet, onClose, onRefresh, isDevMode }) {
+export default function InvestmentPage({ wallet, onClose, onRefresh, isDevMode, upgradeEffects }) {
   const [customAssets, setCustomAssets] = useState([]);
   const [prices, setPrices] = useState(() => initPrices());
   const [investments, setInvestments] = useState([]);
@@ -572,6 +578,7 @@ export default function InvestmentPage({ wallet, onClose, onRefresh, isDevMode }
 
   // Tick prices
   useEffect(() => {
+    const speed = Math.max(1, Number(upgradeEffects?.speedMultiplier || 1));
     const interval = setInterval(() => {
       setPrices(prev => {
         const next = { ...prev };
@@ -586,9 +593,9 @@ export default function InvestmentPage({ wallet, onClose, onRefresh, isDevMode }
         }
         return next;
       });
-    }, TICK_MS);
+    }, TICK_MS / speed);
     return () => clearInterval(interval);
-  }, []);
+  }, [upgradeEffects?.speedMultiplier]);
 
   const refreshInvestments = async () => {
     const allInv = await base44.entities.Investment.filter({ wallet_id: wallet.id });
@@ -718,6 +725,7 @@ export default function InvestmentPage({ wallet, onClose, onRefresh, isDevMode }
                     onBack={() => setSelected(null)}
                     onBuy={handleBuy}
                     onSell={handleSell}
+                    upgradeEffects={upgradeEffects}
                   />
                 </motion.div>
               ) : (

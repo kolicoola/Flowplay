@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getAvatarStyle } from "./avatarUtils";
+import { applyFriendshipIncomingBonus } from "./upgradeEffects";
 
 export default function PayByName({ wallet, onPaymentComplete, open, onOpenChange }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,7 +89,12 @@ export default function PayByName({ wallet, onPaymentComplete, open, onOpenChang
         note:         note.trim() || null,
       });
 
+      const boosted = await applyFriendshipIncomingBonus(recipientWallet.id, amt);
+
       toast.success(`Sent $${amt.toFixed(2)} to ${recipientWallet.username}`);
+      if (boosted) {
+        toast.success(`${recipientWallet.username} had Friendship active: payment doubled.`);
+      }
       setSearchQuery("");
       setResults([]);
       setSelectedUser(null);

@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QrCode, ScanLine, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { applyFriendshipIncomingBonus } from "./upgradeEffects";
 
 function QRCodeDisplay({ wallet }) {
   // QR code encodes a URL that auto-fills the pay tab
@@ -76,12 +77,17 @@ function QRScanPay({ wallet, initialWalletId, onPaymentComplete, onClose }) {
         note:         note.trim() || null,
       });
 
+      const boosted = await applyFriendshipIncomingBonus(freshRecipient.id, amt);
+
       // Clear the ?pay= param from URL
       const url = new URL(window.location.href);
       url.searchParams.delete("pay");
       window.history.replaceState({}, "", url.toString());
 
       toast.success(`Sent $${amt.toFixed(2)} to ${freshRecipient.username}`);
+      if (boosted) {
+        toast.success(`${freshRecipient.username} had Friendship active: payment doubled.`);
+      }
       onPaymentComplete();
       onClose();
     } catch (e) {
