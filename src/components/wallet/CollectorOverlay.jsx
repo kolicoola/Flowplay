@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -44,9 +44,6 @@ function spawnPos() {
 
 export default function CollectorOverlay({ wallet, ownedUpgrades, onRefresh }) {
   const [floatingDollars, setFloatingDollars] = useState([]);
-  const balanceRef = useRef(wallet.balance);
-
-  useEffect(() => { balanceRef.current = wallet.balance; }, [wallet.balance]);
 
   // Collector upgrades
   useEffect(() => {
@@ -80,11 +77,13 @@ export default function CollectorOverlay({ wallet, ownedUpgrades, onRefresh }) {
 
   const handleCollect = async (id, amount) => {
     setFloatingDollars((prev) => prev.filter((d) => d.id !== id));
-    const newBalance = balanceRef.current + amount;
-    balanceRef.current = newBalance;
-    await base44.entities.Wallet.update(wallet.id, { balance: newBalance });
-    onRefresh();
-    toast.success(`+$${amount} collected!`, { duration: 1000 });
+    try {
+      await base44.adjustWalletBalance(wallet.id, amount);
+      onRefresh();
+      toast.success(`+$${amount} collected!`, { duration: 1000 });
+    } catch (e) {
+      toast.error(e?.message || "Could not collect reward");
+    }
   };
 
   return (

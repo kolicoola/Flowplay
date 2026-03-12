@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, TrendingUp, TrendingDown, Loader2, ArrowLeft, DollarSign, Plus, Trash2, Edit2, Check, Users } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Loader2, ArrowLeft, Plus, Trash2, Edit2, Check, Users } from "lucide-react";
 import { LineChart, Line, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -102,44 +102,61 @@ function AssetDetail({ asset, priceData, myInvestment, wallet, onBack, onBuy, on
     if (isNaN(rawDollars) || rawDollars <= 0) { toast.error("Enter a valid amount"); return; }
     if (rawDollars > wallet.balance) { toast.error("Insufficient balance"); return; }
     setLoading(true);
-    const bought = rawDollars / price;
-    await base44.entities.Wallet.update(wallet.id, { balance: wallet.balance - rawDollars });
-    const fresh = await base44.entities.Investment.filter({ wallet_id: wallet.id, asset_id: asset.id });
-    const existing = fresh[0];
-    if (existing) {
-      const totalShares = existing.shares + bought;
-      const newAvg = (existing.shares * existing.avg_buy_price + rawDollars) / totalShares;
-      await base44.entities.Investment.update(existing.id, { shares: totalShares, avg_buy_price: newAvg });
-    } else {
-      await base44.entities.Investment.create({ wallet_id: wallet.id, asset_id: asset.id, shares: bought, avg_buy_price: price });
+    try {
+      const bought = rawDollars / price;
+      await base44.adjustWalletBalance(wallet.id, -rawDollars);
+      const fresh = await base44.entities.Investment.filter({ wallet_id: wallet.id, asset_id: asset.id });
+      const existing = fresh[0];
+      if (existing) {
+        const totalShares = existing.shares + bought;
+        const newAvg = (existing.shares * existing.avg_buy_price + rawDollars) / totalShares;
+        await base44.entities.Investment.update(existing.id, { shares: totalShares, avg_buy_price: newAvg });
+      } else {
+        await base44.entities.Investment.create({ wallet_id: wallet.id, asset_id: asset.id, shares: bought, avg_buy_price: price });
+      }
+      toast.success(`Bought ${bought.toFixed(6)} ${asset.symbol}!`);
+      setDollarAmt("");
+      onBuy(rawDollars, bought, price);
+    } catch (e) {
+      toast.error(e?.message || "Could not complete buy");
+    } finally {
+      setLoading(false);
     }
-    toast.success(`Bought ${bought.toFixed(6)} ${asset.symbol}!`);
-    setDollarAmt("");
-    setLoading(false);
-    onBuy(rawDollars, bought, price);
   };
 
   const handleSell = async () => {
     const sharesToSell = parseFloat(sellAmt) || shares;
     if (sharesToSell <= 0 || sharesToSell > shares) { toast.error(`You only have ${shares.toFixed(6)} ${asset.symbol}`); return; }
     setLoading(true);
-    // Always fetch fresh from DB to get the real current ID
-    const fresh = await base44.entities.Investment.filter({ wallet_id: wallet.id, asset_id: asset.id });
-    const inv = fresh[0];
-    if (!inv?.id) { toast.error("Investment not found"); setLoading(false); return; }
-    const proceeds = sharesToSell * price;
-    await base44.entities.Wallet.update(wallet.id, { balance: wallet.balance + proceeds });
-    const remaining = shares - sharesToSell;
-    if (remaining < 0.000001) {
-      await base44.entities.Investment.delete(inv.id);
-    } else {
-      await base44.entities.Investment.update(inv.id, { shares: remaining });
+    try {
+      // Always fetch fresh from DB to get the real current ID and shares
+      const fresh = await base44.entities.Investment.filter({ wallet_id: wallet.id, asset_id: asset.id });
+      const inv = fresh[0];
+      if (!inv?.id) { toast.error("Investment not found"); return; }
+      const ownedShares = Number(inv.shares || 0);
+      if (sharesToSell > ownedShares) {
+        toast.error(`You only have ${ownedShares.toFixed(6)} ${asset.symbol}`);
+        return;
+      }
+
+      const proceeds = sharesToSell * price;
+      await base44.adjustWalletBalance(wallet.id, proceeds);
+
+      const remaining = ownedShares - sharesToSell;
+      if (remaining < 0.000001) {
+        await base44.entities.Investment.delete(inv.id);
+      } else {
+        await base44.entities.Investment.update(inv.id, { shares: remaining });
+      }
+      const profit = proceeds - sharesToSell * avgBuy;
+      toast.success(`Sold for $${proceeds.toFixed(2)}! P&L: ${profit >= 0 ? "+" : ""}$${profit.toFixed(2)}`);
+      setSellAmt("");
+      onSell(proceeds, sharesToSell);
+    } catch (e) {
+      toast.error(e?.message || "Could not complete sell");
+    } finally {
+      setLoading(false);
     }
-    const profit = proceeds - sharesToSell * avgBuy;
-    toast.success(`Sold for $${proceeds.toFixed(2)}! P&L: ${profit >= 0 ? "+" : ""}$${profit.toFixed(2)}`);
-    setSellAmt("");
-    setLoading(false);
-    onSell(proceeds, sharesToSell);
   };
 
   return (

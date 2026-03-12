@@ -7,7 +7,7 @@ const ENTITY_TABLE = {
   Charity:         "charities",
   CoinFlip:        "coin_flips",
   Investment:      "investments",
-  Upgrade:         "upgrades",/*  */
+  Upgrade:         "upgrades",/* yo yo */
   AssetDefinition: "asset_definitions",
   AssetPrice:      "asset_prices",
   Profile:         "profiles",
@@ -143,6 +143,58 @@ const makeTransferFunds = () => {
   };
 };
 
+// Atomic single-wallet balance delta using optimistic concurrency (CAS loop).
+// This prevents lost updates when multiple actions modify the same wallet at once.
+const makeAdjustWalletBalance = () => {
+  if (isSupabaseConfigured && supabase) {
+    return async (walletId, delta, options = {}) => {
+      const amount = Number(delta);
+      const maxRetries = Number(options.maxRetries ?? 8);
+      const allowNegative = Boolean(options.allowNegative ?? false);
+
+      if (!walletId) throw new Error("Wallet ID is required.");
+      if (!Number.isFinite(amount) || amount === 0) {
+        throw new Error("Balance delta must be a non-zero number.");
+      }
+
+      for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+        const { data: current, error: readError } = await supabase
+          .from(ENTITY_TABLE.Wallet)
+          .select("id,balance")
+          .eq("id", walletId)
+          .maybeSingle();
+
+        if (readError) throw new Error(readError.message);
+        if (!current) throw new Error("Wallet not found.");
+
+        const currentBalance = Number(current.balance || 0);
+        const nextBalance = currentBalance + amount;
+
+        if (!allowNegative && nextBalance < 0) {
+          throw new Error("Insufficient balance");
+        }
+
+        const { data: updated, error: updateError } = await supabase
+          .from(ENTITY_TABLE.Wallet)
+          .update({ balance: nextBalance })
+          .eq("id", walletId)
+          .eq("balance", current.balance)
+          .select()
+          .maybeSingle();
+
+        if (updateError) throw new Error(updateError.message);
+        if (updated) return updated;
+      }
+
+      throw new Error("Balance update conflict. Please try again.");
+    };
+  }
+
+  return async () => {
+    throw new Error("Cannot adjust wallet balance: Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+  };
+};
+
 const createClient = () => ({
   entities: {
     ...Object.fromEntries(
@@ -165,6 +217,8 @@ const createClient = () => ({
   },
   // Atomic balance transfer — prefer over manual Wallet.update + Transaction.create
   transferFunds: makeTransferFunds(),
+  // Atomic balance adjust for earnings/spending within a single wallet.
+  adjustWalletBalance: makeAdjustWalletBalance(),
 });
 
 export const base44 = createClient();

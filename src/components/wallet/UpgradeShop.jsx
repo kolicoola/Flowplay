@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Zap, X, Lock, ArrowUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,24 +43,28 @@ export const UPGRADES = [
 
 export default function UpgradeShop({ wallet, onClose, onRefresh, ownedUpgrades, onBuy }) {
   const [buying, setBuying] = useState(null);
-  const [balance, setBalance] = useState(wallet.balance);
+  const [balance, setBalance] = useState(Number(wallet.balance) || 0);
 
-  useEffect(() => { setBalance(wallet.balance); }, [wallet.balance]);
+  useEffect(() => { setBalance(Number(wallet.balance) || 0); }, [wallet.balance]);
 
   const handleBuy = async (upgrade) => {
     if (ownedUpgrades && ownedUpgrades[upgrade.id]) { toast.error("Already owned!"); return; }
     if (balance < upgrade.cost) { toast.error(`Need $${upgrade.cost.toLocaleString()}`); return; }
 
     setBuying(upgrade.id);
-    const newBalance = balance - upgrade.cost;
-    setBalance(newBalance);
-    await base44.entities.Wallet.update(wallet.id, { balance: newBalance });
-    await base44.entities.Upgrade.create({ wallet_id: wallet.id, upgrade_id: upgrade.id, level: 1 });
+    try {
+      const updatedWallet = await base44.adjustWalletBalance(wallet.id, -upgrade.cost);
+      setBalance(Number(updatedWallet.balance) || 0);
+      await base44.entities.Upgrade.create({ wallet_id: wallet.id, upgrade_id: upgrade.id, level: 1 });
 
-    toast.success(`${upgrade.label} purchased!`);
-    setBuying(null);
-    if (onBuy) onBuy();
-    onRefresh();
+      toast.success(`${upgrade.label} purchased!`);
+      if (onBuy) onBuy();
+      onRefresh();
+    } catch (e) {
+      toast.error(e?.message || "Could not buy upgrade");
+    } finally {
+      setBuying(null);
+    }
   };
 
   const owned = ownedUpgrades || {};

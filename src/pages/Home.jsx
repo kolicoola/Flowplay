@@ -123,12 +123,10 @@ export default function Home() {
     passiveTimerRef.current = setInterval(async () => {
       const current = walletRef.current;
       if (!current) return;
-      const newBalance = current.balance + batchAmount;
-      const updated = { ...current, balance: newBalance };
-      walletRef.current = updated;
-      setMyWallet(updated);
       try {
-        await base44.entities.Wallet.update(current.id, { balance: newBalance });
+        const updated = await base44.adjustWalletBalance(current.id, batchAmount);
+        walletRef.current = updated;
+        setMyWallet(updated);
       } catch (e) {
         // Wallet was deleted — stop the timer and clear local state
         clearInterval(passiveTimerRef.current);

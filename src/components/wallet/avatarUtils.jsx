@@ -19,6 +19,9 @@ export const FONTS = [
   { id: "pixel",      label: "👾 Pixel",        price: 600,  fontFamily: "'Lucida Console', 'Courier New', monospace", fontWeight: "900" },
   { id: "diamond_serif", label: "💎 Diamond Serif", price: 85000, fontFamily: "'Times New Roman', serif", fontWeight: "700", letterSpacing: "0.08em" },
   { id: "duma_god",      label: "⚜ Duma God Font",  price: 250000, fontFamily: "'Impact', 'Arial Black', sans-serif", fontWeight: "900", letterSpacing: "0.12em" },
+  { id: "obsidian_grotesk", label: "🖤 Obsidian Grotesk", price: 650000, fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif", fontWeight: "900", letterSpacing: "0.05em" },
+  { id: "royal_script", label: "👑 Royal Script", price: 900000, fontFamily: "'Palatino Linotype', 'Book Antiqua', serif", fontStyle: "italic", fontWeight: "700", letterSpacing: "0.07em" },
+  { id: "neon_wire", label: "⚡ Neon Wire", price: 1100000, fontFamily: "'Lucida Console', 'Courier New', monospace", fontWeight: "700", letterSpacing: "0.18em" },
 ];
 
 export function getFontStyle(fontId) {
@@ -26,6 +29,7 @@ export function getFontStyle(fontId) {
   if (!found || found.id === "default") return {};
   const s = { fontFamily: found.fontFamily };
   if (found.fontWeight) s.fontWeight = found.fontWeight;
+  if (found.fontStyle) s.fontStyle = found.fontStyle;
   if (found.letterSpacing) s.letterSpacing = found.letterSpacing;
   return s;
 }
@@ -56,6 +60,9 @@ export const LETTER_COLORS = [
   { id: "ice",      label: "🧊 Ice Blue",   price: 350,  color: "#bae6fd" },
   { id: "cherry",   label: "🍒 Cherry",     price: 280,  color: "#fb2c36" },
   { id: "cosmic",   label: "🪐 Cosmic",     price: 1500, color: "linear3" },
+  { id: "sunburst", label: "🌞 Sunburst",   price: 2400, color: "linear4" },
+  { id: "aether",   label: "🧿 Aether",     price: 3200, color: "linear5" },
+  { id: "royal_ice",label: "❄️ Royal Ice",  price: 4800, color: "linear6" },
 ];
 
 export function getLetterColorStyle(lcId) {
@@ -71,6 +78,18 @@ export function getLetterColorStyle(lcId) {
   };
   if (found.color === "linear3") return {
     background: "linear-gradient(135deg, #a78bfa, #818cf8, #38bdf8, #34d399)",
+    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
+  };
+  if (found.color === "linear4") return {
+    background: "linear-gradient(135deg, #f59e0b, #f97316, #ef4444, #fde047)",
+    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
+  };
+  if (found.color === "linear5") return {
+    background: "linear-gradient(135deg, #22d3ee, #3b82f6, #7c3aed, #ec4899)",
+    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
+  };
+  if (found.color === "linear6") return {
+    background: "linear-gradient(135deg, #e0f2fe, #93c5fd, #60a5fa, #c4b5fd)",
     WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
   };
   return { color: found.color };
@@ -311,6 +330,39 @@ export const SITE_BACKGROUNDS = [
     }
   },
   {
+    id: "rainforest_temple",
+    label: "🌴 Rainforest Temple",
+    price: 450000,
+    style: {
+      background: "linear-gradient(140deg, #04140a, #0b3a2a, #14532d, #365314, #78350f)",
+      backgroundSize: "240% 240%",
+      animation: "logoPan 18s ease-in-out infinite, logoPulse 8s ease-in-out infinite",
+      filter: "brightness(0.94) saturate(1.08)"
+    }
+  },
+  {
+    id: "frost_palace",
+    label: "🏰 Frost Palace",
+    price: 680000,
+    style: {
+      background: "linear-gradient(140deg, #020617, #0f172a, #1d4ed8, #38bdf8, #e0f2fe)",
+      backgroundSize: "260% 260%",
+      animation: "logoPan 14s ease-in-out infinite, logoFloat 10s ease-in-out infinite, logoPulse 9s ease-in-out infinite",
+      filter: "brightness(1.0) saturate(1.1)"
+    }
+  },
+  {
+    id: "ember_core",
+    label: "🔥 Ember Core",
+    price: 950000,
+    style: {
+      background: "linear-gradient(140deg, #140402, #4a0f0f, #9a3412, #ea580c, #facc15)",
+      backgroundSize: "280% 280%",
+      animation: "logoPan 10s ease-in-out infinite, logoHue 20s linear infinite, logoPulse 6s ease-in-out infinite",
+      filter: "brightness(1.06) saturate(1.2)"
+    }
+  },
+  {
     id: "custom_canvas",
     label: "🎨 My Drawing",
     price: 5000000,
@@ -408,6 +460,39 @@ export const AVATAR_BACKGROUNDS = [
       filter: "brightness(1.08) saturate(1.2)"
     }
   },
+  {
+    id: "frostbite_crown",
+    label: "🧊 Frostbite Crown",
+    price: 420000,
+    style: {
+      background: "linear-gradient(145deg, #1e3a8a, #0ea5e9, #67e8f9, #dbeafe)",
+      backgroundSize: "240% 240%",
+      animation: "logoPan 15s ease-in-out infinite, logoPulse 9s ease-in-out infinite",
+      filter: "brightness(1.06) saturate(1.1)"
+    }
+  },
+  {
+    id: "obsidian_reign",
+    label: "🖤 Obsidian Reign",
+    price: 700000,
+    style: {
+      background: "linear-gradient(145deg, #020617, #111827, #1f2937, #7c3aed)",
+      backgroundSize: "260% 260%",
+      animation: "logoPan 16s ease-in-out infinite, logoHue 26s linear infinite",
+      filter: "brightness(0.98) saturate(1.15)"
+    }
+  },
+  {
+    id: "prism_nova",
+    label: "🌈 Prism Nova",
+    price: 980000,
+    style: {
+      background: "linear-gradient(145deg, #ef4444, #f97316, #facc15, #22c55e, #3b82f6, #8b5cf6)",
+      backgroundSize: "300% 300%",
+      animation: "logoPan 12s ease-in-out infinite, logoHue 18s linear infinite, logoPulse 6s ease-in-out infinite",
+      filter: "brightness(1.08) saturate(1.25)"
+    }
+  },
 ];
 
 export const STORE_PACKAGES = [
@@ -437,6 +522,20 @@ export const STORE_PACKAGES = [
       avatar_font: "duma_god",
       avatar_background: "duma_godflame",
       site_background: "duma_throne",
+    },
+  },
+  {
+    id: "mythic_triad_package",
+    label: "🌠 Mythic Triad Package",
+    price: 3800000,
+    description: "Endgame unlock set with the most premium neon + prism cosmetics.",
+    fontUnlocks: ["neon_wire", "royal_script"],
+    avatarBgUnlocks: ["prism_nova", "obsidian_reign"],
+    siteBgUnlocks: ["ember_core", "frost_palace"],
+    autoEquip: {
+      avatar_font: "neon_wire",
+      avatar_background: "prism_nova",
+      site_background: "ember_core",
     },
   },
 ];
