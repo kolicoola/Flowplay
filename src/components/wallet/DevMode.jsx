@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, ChevronDown, ChevronUp, Loader2, Check, Pencil, Trash2, DollarSign } from "lucide-react";
+import { Terminal, ChevronDown, ChevronUp, Loader2, Check, Pencil, Trash2, DollarSign, Users, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { getAvatarStyle } from "./avatarUtils";
@@ -20,6 +20,10 @@ export default function DevMode({ wallet, onRefresh, onSwitchUser }) {
   const [addingMoney, setAddingMoney] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [customAmount, setCustomAmount] = useState("");
+  const [ownBalanceInput, setOwnBalanceInput] = useState("");
+  const [globalAmount, setGlobalAmount] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -43,11 +47,49 @@ export default function DevMode({ wallet, onRefresh, onSwitchUser }) {
   };
 
   const handleAddMoney = async (amount) => {
+    const val = Number(amount);
+    if (!Number.isFinite(val) || val <= 0) { toast.error("Enter a valid positive amount"); return; }
     setAddingMoney(true);
-    await base44.entities.Wallet.update(wallet.id, { balance: wallet.balance + amount });
-    await onRefresh();
-    setAddingMoney(false);
-    toast.success(`+$${amount} added to your wallet!`);
+    try {
+      await base44.adjustWalletBalance(wallet.id, val);
+      await onRefresh();
+      toast.success(`+$${val} added to your wallet!`);
+    } catch (error) {
+      toast.error(error?.message || "Failed to add money");
+    } finally {
+      setAddingMoney(false);
+    }
+  };
+
+  const handleRemoveMoney = async (amount) => {
+    const val = Number(amount);
+    if (!Number.isFinite(val) || val <= 0) { toast.error("Enter a valid positive amount"); return; }
+    setAddingMoney(true);
+    try {
+      await base44.adjustWalletBalance(wallet.id, -val);
+      await onRefresh();
+      toast.success(`-$${val} removed from your wallet`);
+    } catch (error) {
+      toast.error(error?.message || "Failed to remove money");
+    } finally {
+      setAddingMoney(false);
+    }
+  };
+
+  const handleSetOwnBalance = async () => {
+    const val = Number(ownBalanceInput);
+    if (!Number.isFinite(val) || val < 0) { toast.error("Invalid balance"); return; }
+    setAddingMoney(true);
+    try {
+      await base44.entities.Wallet.update(wallet.id, { balance: val });
+      await onRefresh();
+      toast.success(`Your balance is now $${val.toFixed(2)}`);
+      setOwnBalanceInput("");
+    } catch (error) {
+      toast.error(error?.message || "Failed to set your balance");
+    } finally {
+      setAddingMoney(false);
+    }
   };
 
   const handleRename = async (target) => {
@@ -102,6 +144,88 @@ export default function DevMode({ wallet, onRefresh, onSwitchUser }) {
     });
     toast.success(`Created ${username}`);
     await fetchAllWallets();
+  };
+
+  const handleCreateManyTestUsers = async (count = 5) => {
+    setBulkLoading(true);
+    try {
+      const tasks = Array.from({ length: count }).map(() => {
+        const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+        return base44.entities.Wallet.create({
+          username: `Bot_${suffix}`,
+          balance: 1000,
+          avatar_color: "#6366f1",
+        });
+      });
+      await Promise.all(tasks);
+      toast.success(`Created ${count} test users`);
+      await fetchAllWallets();
+    } catch (error) {
+      toast.error(error?.message || "Failed to create test users");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleGiveAll = async (sign = 1) => {
+    const amount = Number(globalAmount);
+    if (!Number.isFinite(amount) || amount <= 0) { toast.error("Enter a valid amount first"); return; }
+    const delta = sign * amount;
+    const actionWord = delta > 0 ? "give" : "remove";
+    if (!window.confirm(`Are you sure you want to ${actionWord} $${Math.abs(delta)} ${delta > 0 ? "to" : "from"} all users?`)) return;
+
+    setBulkLoading(true);
+    try {
+      const everyone = await base44.entities.Wallet.list();
+      for (const w of everyone) {
+        if (delta < 0 && Number(w.balance || 0) < Math.abs(delta)) {
+          continue;
+        }
+        await base44.adjustWalletBalance(w.id, delta);
+      }
+      toast.success(`Applied ${delta > 0 ? "+" : "-"}$${Math.abs(delta)} to all eligible users`);
+      await onRefresh();
+      await fetchAllWallets();
+    } catch (error) {
+      toast.error(error?.message || "Bulk update failed");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleDeleteWaitingFlips = async () => {
+    if (!window.confirm("Delete all waiting coin flips and refund creators?")) return;
+    setCleanupLoading(true);
+    try {
+      const flips = await base44.entities.CoinFlip.filter({ status: "waiting" });
+      for (const flip of flips) {
+        await base44.adjustWalletBalance(flip.creator_wallet_id, Number(flip.amount || 0));
+        await base44.entities.CoinFlip.delete(flip.id);
+      }
+      toast.success(`Cleared ${flips.length} waiting flips`);
+      await onRefresh();
+    } catch (error) {
+      toast.error(error?.message || "Failed to clear flips");
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
+  const handleDeleteTransactions = async () => {
+    if (!window.confirm("Delete ALL transaction history? This cannot be undone.")) return;
+    setCleanupLoading(true);
+    try {
+      const txs = await base44.entities.Transaction.list("-created_date", 2000);
+      for (const tx of txs) {
+        await base44.entities.Transaction.delete(tx.id);
+      }
+      toast.success(`Deleted ${txs.length} transactions`);
+      await onRefresh();
+    } catch (error) {
+      toast.error(error?.message || "Failed to delete transactions");
+    } finally {
+      setCleanupLoading(false);
+    }
   };
 
   return (
@@ -163,6 +287,93 @@ export default function DevMode({ wallet, onRefresh, onSwitchUser }) {
                     className="px-3 py-1.5 rounded-xl bg-green-500/20 hover:bg-green-500/30 text-green-400 font-bold text-sm disabled:opacity-50 flex-shrink-0"
                   >
                     Add
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  {MONEY_AMOUNTS.map((amt) => (
+                    <button
+                      key={`remove-${amt}`}
+                      onClick={() => handleRemoveMoney(amt)}
+                      disabled={addingMoney}
+                      className="py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 font-mono text-sm font-bold transition-all hover:scale-105 disabled:opacity-50"
+                    >
+                      {addingMoney ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `-$${amt}`}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    type="number"
+                    value={ownBalanceInput}
+                    onChange={e => setOwnBalanceInput(e.target.value)}
+                    placeholder="Set exact balance..."
+                    className="h-8 text-sm bg-white/10 border-white/10 text-white placeholder:text-slate-500"
+                    onKeyDown={e => { if (e.key === "Enter" && ownBalanceInput) handleSetOwnBalance(); }}
+                  />
+                  <button
+                    onClick={handleSetOwnBalance}
+                    disabled={addingMoney || !ownBalanceInput}
+                    className="px-3 py-1.5 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 font-bold text-sm disabled:opacity-50 flex-shrink-0"
+                  >
+                    Set
+                  </button>
+                </div>
+              </div>
+
+              {/* Global economy tools */}
+              <div>
+                <p className="text-green-300/70 text-xs font-mono mb-3 uppercase tracking-widest flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Global Economy Tools</p>
+                <div className="flex gap-2 mb-2">
+                  <Input
+                    type="number"
+                    value={globalAmount}
+                    onChange={(e) => setGlobalAmount(e.target.value)}
+                    placeholder="Amount for all users..."
+                    className="h-8 text-sm bg-white/10 border-white/10 text-white placeholder:text-slate-500"
+                  />
+                  <button
+                    onClick={() => handleGiveAll(1)}
+                    disabled={bulkLoading || !globalAmount}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs disabled:opacity-50"
+                  >
+                    Give All
+                  </button>
+                  <button
+                    onClick={() => handleGiveAll(-1)}
+                    disabled={bulkLoading || !globalAmount}
+                    className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs disabled:opacity-50"
+                  >
+                    Remove All
+                  </button>
+                </div>
+                <button
+                  onClick={() => handleCreateManyTestUsers(5)}
+                  disabled={bulkLoading}
+                  className="w-full py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-300 font-mono text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {bulkLoading ? "Working..." : "+ Create 5 Test Users"}
+                </button>
+              </div>
+
+              {/* Cleanup tools */}
+              <div>
+                <p className="text-green-300/70 text-xs font-mono mb-3 uppercase tracking-widest flex items-center gap-1"><Wrench className="w-3.5 h-3.5" /> Data Cleanup</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleDeleteWaitingFlips}
+                    disabled={cleanupLoading}
+                    className="py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-xs font-bold disabled:opacity-50"
+                  >
+                    {cleanupLoading ? "Working..." : "Clear Waiting Flips"}
+                  </button>
+                  <button
+                    onClick={handleDeleteTransactions}
+                    disabled={cleanupLoading}
+                    className="py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-200 text-xs font-bold disabled:opacity-50"
+                  >
+                    {cleanupLoading ? "Working..." : "Clear Transactions"}
                   </button>
                 </div>
               </div>
