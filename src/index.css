@@ -176,6 +176,27 @@
     linear-gradient(145deg, #f97316 0%, #ef4444 45%, #7f1d1d 100%);
 }
 
+.wallet-upgrade-card--potion-texture::before {
+  background:
+    radial-gradient(circle at 14% 16%, rgba(255, 255, 255, 0.2) 0, rgba(255, 255, 255, 0.2) 3px, transparent 4px),
+    radial-gradient(circle at 72% 18%, rgba(255, 255, 255, 0.14) 0, rgba(255, 255, 255, 0.14) 8px, transparent 9px),
+    radial-gradient(circle at 88% 74%, rgba(255, 255, 255, 0.1) 0, rgba(255, 255, 255, 0.1) 16px, transparent 17px),
+    radial-gradient(circle at 24% 76%, rgba(255, 255, 255, 0.1) 0, rgba(255, 255, 255, 0.1) 11px, transparent 12px),
+    radial-gradient(circle at 48% 36%, rgba(255, 255, 255, 0.12) 0, rgba(255, 255, 255, 0.12) 2px, transparent 3px),
+    radial-gradient(circle at 38% 58%, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 1px, transparent 2px),
+    radial-gradient(circle at 62% 66%, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 1px, transparent 2px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 44%);
+}
+
+.wallet-upgrade-card--potion-texture::after {
+  background:
+    radial-gradient(circle at 8% 10%, rgba(255, 255, 255, 0.2) 0, rgba(255, 255, 255, 0.2) 30px, transparent 31px),
+    radial-gradient(circle at 82% 22%, rgba(255, 255, 255, 0.1) 0, rgba(255, 255, 255, 0.1) 22px, transparent 23px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 32%),
+    linear-gradient(0deg, rgba(15, 23, 42, 0.2), transparent 42%);
+  opacity: 0.95;
+}
+
 .wallet-store-item-card {
   position: relative;
   overflow: hidden;

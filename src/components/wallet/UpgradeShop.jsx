@@ -21,7 +21,7 @@ function fmtDuration(msLeft) {
 
 function ActiveItemCard({ title, subtitle, timeLeft, theme }) {
   return (
-    <div className={`wallet-upgrade-card ${theme} min-h-32 flex-col items-start justify-between`}>
+    <div className={`wallet-upgrade-card wallet-upgrade-card--potion-texture ${theme} min-h-32 flex-col items-start justify-between`}>
       <div>
         <p className="text-white font-semibold text-base">{title}</p>
         <p className="text-white/75 text-sm mt-1">{subtitle}</p>
@@ -176,7 +176,7 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
             const isActive = (upgradeEffects?.luckyUntil || 0) > now;
             const msLeft = Math.max(0, (upgradeEffects?.luckyUntil || 0) - now);
             return (
-              <div key={upg.id} className={`${cardBaseClass} wallet-upgrade-card--lucky`}>
+              <div key={upg.id} className={`${cardBaseClass} wallet-upgrade-card--potion-texture wallet-upgrade-card--lucky`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-white font-semibold text-sm">{upg.label}</p>
@@ -206,7 +206,7 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
             const isActive = (upgradeEffects?.speedUntil || 0) > now;
             const msLeft = Math.max(0, (upgradeEffects?.speedUntil || 0) - now);
             return (
-              <div key={upg.id} className={`${cardBaseClass} wallet-upgrade-card--speed`}>
+              <div key={upg.id} className={`${cardBaseClass} wallet-upgrade-card--potion-texture wallet-upgrade-card--speed`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-white font-semibold text-sm">{upg.label}</p>
@@ -255,7 +255,7 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
           })}
 
           <p className="text-slate-400 text-xs font-mono uppercase tracking-widest mt-4">🤝 Friendship Aura</p>
-          <div className={`${cardBaseClass} wallet-upgrade-card--friendship`}>
+          <div className={`${cardBaseClass} wallet-upgrade-card--potion-texture wallet-upgrade-card--friendship`}>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-white font-semibold text-sm">{FRIENDSHIP_UPGRADE.label}</p>
