@@ -175,3 +175,73 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
     linear-gradient(145deg, #f97316 0%, #ef4444 45%, #7f1d1d 100%);
 }
+
+.wallet-store-item-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #334155, #1e293b 50%, #0f172a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 12px 26px rgba(2, 6, 23, 0.3);
+}
+
+.wallet-store-item-card::before,
+.wallet-store-item-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wallet-store-item-card::before {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.14) 0, rgba(255, 255, 255, 0.14) 4px, transparent 5px),
+    radial-gradient(circle at 80% 22%, rgba(255, 255, 255, 0.12) 0, rgba(255, 255, 255, 0.12) 16px, transparent 17px),
+    radial-gradient(circle at 82% 76%, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 20px, transparent 21px),
+    radial-gradient(circle at 26% 72%, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 10px, transparent 11px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 46%);
+  mix-blend-mode: screen;
+}
+
+.wallet-store-item-card::after {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.14) 0, rgba(255, 255, 255, 0.14) 42px, transparent 43px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 34%),
+    linear-gradient(0deg, rgba(15, 23, 42, 0.18), transparent 45%);
+}
+
+.wallet-store-item-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.wallet-store-item-card--background {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #7c3aed 0%, #6d28d9 48%, #4c1d95 100%);
+}
+
+.wallet-store-item-card--font {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #0f766e 0%, #0ea5e9 45%, #1e3a8a 100%);
+}
+
+.wallet-store-item-card--letter {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #f59e0b 0%, #f97316 45%, #9a3412 100%);
+}
+
+.wallet-store-item-card--site {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #16a34a 0%, #059669 45%, #14532d 100%);
+}
+
+.wallet-store-item-card--package {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #db2777 0%, #9333ea 44%, #4c1d95 100%);
+}

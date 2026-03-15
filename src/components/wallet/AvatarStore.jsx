@@ -24,10 +24,15 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
   const [showDrawModal, setShowDrawModal] = useState(false);
   const [brushColor, setBrushColor] = useState("#ffffff");
   const [brushSize, setBrushSize] = useState(10);
+  const [balance, setBalance] = useState(Number(wallet.balance) || 0);
 
   const canvasRef = useRef(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef(null);
+
+  useEffect(() => {
+    setBalance(Number(wallet.balance) || 0);
+  }, [wallet.balance]);
 
   const owned = wallet.owned_backgrounds || [];
   const ownedFonts = wallet.owned_fonts || [];
@@ -56,19 +61,31 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
   };
 
   const buy = async (field, ownedField, id, price, label, extraFields = {}) => {
-    if (wallet.balance < price) { toast.error(`You need $${price} to buy this.`); return; }
+    if (balance < price) { toast.error(`You need $${price} to buy this.`); return; }
     setBuying(id);
-    const currentOwned = wallet[ownedField] || [];
-    const newOwned = [...new Set([...currentOwned, id])];
     try {
-      await base44.entities.Wallet.update(wallet.id, {
-        balance: wallet.balance - price,
+      const freshWallet = await base44.entities.Wallet.get(wallet.id);
+      const currentOwned = freshWallet[ownedField] || [];
+      const newOwned = [...new Set([...currentOwned, id])];
+      if (Number(freshWallet.balance || 0) < price) {
+        throw new Error(`You need $${price} to buy this.`);
+      }
+
+      await base44.adjustWalletBalance(wallet.id, -price);
+      try {
+        await base44.entities.Wallet.update(wallet.id, {
         [ownedField]: newOwned,
         [field]: id,
         ...extraFields,
-      });
+        });
+      } catch (error) {
+        await base44.adjustWalletBalance(wallet.id, price);
+        throw error;
+      }
+
+      setBalance((prev) => Math.max(0, prev - price));
       toast.success(`"${label}" unlocked & equipped!`);
-      onRefresh();
+      await onRefresh?.();
     } catch (error) {
       toast.error(`Purchase failed: ${error?.message || "Unknown error"}`);
     } finally {
@@ -77,38 +94,49 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
   };
 
   const buyPackage = async (pkg) => {
-    if (wallet.balance < pkg.price) {
+    if (balance < pkg.price) {
       toast.error(`You need $${pkg.price} to buy this package.`);
       return;
     }
     setBuying(pkg.id);
-    const nextPackages = [...new Set([...(wallet.owned_packages || []), pkg.id])];
-    const nextFonts = [...new Set([...(wallet.owned_fonts || []), ...(pkg.fontUnlocks || [])])];
-    const nextAvatarBgs = [...new Set([...(wallet.owned_backgrounds || []), ...(pkg.avatarBgUnlocks || [])])];
-    const nextSiteBgs = [...new Set([...(wallet.owned_site_backgrounds || []), ...(pkg.siteBgUnlocks || [])])];
     try {
-      try {
-        await base44.entities.Wallet.update(wallet.id, {
-          balance: wallet.balance - pkg.price,
-          owned_packages: nextPackages,
-          owned_fonts: nextFonts,
-          owned_backgrounds: nextAvatarBgs,
-          owned_site_backgrounds: nextSiteBgs,
-          ...(pkg.autoEquip || {}),
-        });
-      } catch (error) {
-        if (!isMissingColumnError(error, "owned_packages")) throw error;
-        // Backward-compatible fallback if DB migration has not added `owned_packages` yet.
-        await base44.entities.Wallet.update(wallet.id, {
-          balance: wallet.balance - pkg.price,
-          owned_fonts: nextFonts,
-          owned_backgrounds: nextAvatarBgs,
-          owned_site_backgrounds: nextSiteBgs,
-          ...(pkg.autoEquip || {}),
-        });
+      const freshWallet = await base44.entities.Wallet.get(wallet.id);
+      if (Number(freshWallet.balance || 0) < pkg.price) {
+        throw new Error(`You need $${pkg.price} to buy this package.`);
       }
+
+      const nextPackages = [...new Set([...(freshWallet.owned_packages || []), pkg.id])];
+      const nextFonts = [...new Set([...(freshWallet.owned_fonts || []), ...(pkg.fontUnlocks || [])])];
+      const nextAvatarBgs = [...new Set([...(freshWallet.owned_backgrounds || []), ...(pkg.avatarBgUnlocks || [])])];
+      const nextSiteBgs = [...new Set([...(freshWallet.owned_site_backgrounds || []), ...(pkg.siteBgUnlocks || [])])];
+
+      await base44.adjustWalletBalance(wallet.id, -pkg.price);
+      try {
+        try {
+          await base44.entities.Wallet.update(wallet.id, {
+            owned_packages: nextPackages,
+            owned_fonts: nextFonts,
+            owned_backgrounds: nextAvatarBgs,
+            owned_site_backgrounds: nextSiteBgs,
+            ...(pkg.autoEquip || {}),
+          });
+        } catch (error) {
+          if (!isMissingColumnError(error, "owned_packages")) throw error;
+          // Backward-compatible fallback if DB migration has not added `owned_packages` yet.
+          await base44.entities.Wallet.update(wallet.id, {
+            owned_fonts: nextFonts,
+            owned_backgrounds: nextAvatarBgs,
+            owned_site_backgrounds: nextSiteBgs,
+            ...(pkg.autoEquip || {}),
+          });
+        }
+      } catch (error) {
+        await base44.adjustWalletBalance(wallet.id, pkg.price);
+        throw error;
+      }
+      setBalance((prev) => Math.max(0, prev - pkg.price));
       toast.success(`${pkg.label} unlocked!`);
-      onRefresh();
+      await onRefresh?.();
     } catch (error) {
       toast.error(`Package purchase failed: ${error?.message || "Unknown error"}`);
     } finally {
@@ -223,7 +251,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
     try {
       await base44.entities.Wallet.update(wallet.id, { [field]: id });
       toast.success(`"${label}" equipped!`);
-      onRefresh();
+      await onRefresh?.();
     } catch (error) {
       toast.error(`Equip failed: ${error?.message || "Unknown error"}`);
     } finally {
@@ -262,7 +290,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
             <h2 className="text-white font-bold text-lg">Avatar Store</h2>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-slate-400 text-sm font-mono">$<span className="text-white font-bold">{wallet.balance?.toFixed(2)}</span></span>
+            <span className="text-slate-400 text-sm font-mono">$<span className="text-white font-bold">{balance.toFixed(2)}</span></span>
             <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -286,13 +314,13 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
               const isOwned = owned.includes(bg.id) || bg.price === 0;
               const isEquipped = current === bg.id;
               const isLoading = buying === bg.id;
-              const canAfford = wallet.balance >= bg.price;
+              const canAfford = balance >= bg.price;
               const bgStyle = bg.id === "default" ? { backgroundColor: wallet.avatar_color || "#6366f1" } : bg.style;
               return (
                 <motion.button key={bg.id} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                   disabled={!!buying}
                   onClick={() => isOwned ? equip("avatar_background", bg.id, bg.label) : buy("avatar_background", "owned_backgrounds", bg.id, bg.price, bg.label)}
-                  className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                  className={`wallet-store-item-card wallet-store-item-card--background relative flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-200/70" : "hover:-translate-y-0.5"}`}
                 >
                   <AvatarPreview bgStyle={bgStyle} fontStyle={fontStyleForPreview} lcStyle={letterStyle} hairId={currentHair} />
                   <span className="text-white text-xs font-medium text-center leading-tight">{bg.label}</span>
@@ -314,13 +342,13 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
               const isOwned = ownedFonts.includes(font.id) || font.price === 0;
               const isEquipped = currentFont === font.id;
               const isLoading = buying === font.id;
-              const canAfford = wallet.balance >= font.price;
+              const canAfford = balance >= font.price;
               const fontStyle = getFontStyle(font.id);
               return (
                 <motion.button key={font.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                   disabled={!!buying}
                   onClick={() => isOwned ? equip("avatar_font", font.id, font.label) : buy("avatar_font", "owned_fonts", font.id, font.price, font.label)}
-                  className={`relative w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                  className={`wallet-store-item-card wallet-store-item-card--font relative w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${isEquipped ? "border-cyan-100/70" : "hover:-translate-y-0.5"}`}
                 >
                   <div className="relative inline-flex flex-col items-center flex-shrink-0">
                     <HairOverlay hairId={currentHair} size="md" />
@@ -353,13 +381,13 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
               const isOwned = ownedLetterColors.includes(lc.id) || lc.price === 0;
               const isEquipped = currentLetterColor === lc.id;
               const isLoading = buying === lc.id;
-              const canAfford = wallet.balance >= lc.price;
+              const canAfford = balance >= lc.price;
               const lcStyle = getLetterColorStyle(lc.id);
               return (
                 <motion.button key={lc.id} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                   disabled={!!buying}
                   onClick={() => isOwned ? equip("avatar_letter_color", lc.id, lc.label) : buy("avatar_letter_color", "owned_letter_colors", lc.id, lc.price, lc.label)}
-                  className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                  className={`wallet-store-item-card wallet-store-item-card--letter relative flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${isEquipped ? "border-amber-100/70" : "hover:-translate-y-0.5"}`}
                 >
                   <div className="relative inline-flex flex-col items-center">
                     <HairOverlay hairId={currentHair} size="md" />
@@ -387,7 +415,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
               const isOwned = ownedSiteBgs.includes(bg.id) || bg.price === 0;
               const isEquipped = currentSiteBg === bg.id;
               const isLoading = buying === bg.id;
-              const canAfford = wallet.balance >= bg.price;
+              const canAfford = balance >= bg.price;
               const isCustomCanvas = bg.id === "custom_canvas";
               const previewStyle = isCustomCanvas && customSiteBackground
                 ? { backgroundImage: `url(${customSiteBackground})`, backgroundSize: "cover", backgroundPosition: "center" }
@@ -406,7 +434,7 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
                     }
                     buy("site_background", "owned_site_backgrounds", bg.id, bg.price, bg.label);
                   }}
-                  className={`relative w-full flex items-center gap-4 p-3 rounded-2xl border transition-all ${isEquipped ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                  className={`wallet-store-item-card wallet-store-item-card--site relative w-full flex items-center gap-4 p-3 rounded-2xl border transition-all ${isEquipped ? "border-emerald-100/70" : "hover:-translate-y-0.5"}`}
                 >
                   {/* Preview swatch */}
                   <div className="w-16 h-10 rounded-xl flex-shrink-0 shadow-inner" style={previewStyle} />
@@ -433,12 +461,12 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
             {[...STORE_PACKAGES].sort((a, b) => a.price - b.price).map(pkg => {
               const isOwned = isPackageOwned(pkg);
               const isLoading = buying === pkg.id;
-              const canAfford = wallet.balance >= pkg.price;
+              const canAfford = balance >= pkg.price;
               return (
                 <motion.button key={pkg.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                   disabled={!!buying || isOwned}
                   onClick={() => buyPackage(pkg)}
-                  className={`relative w-full text-left p-4 rounded-2xl border transition-all ${isOwned ? "border-emerald-500/50 bg-emerald-500/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                  className={`wallet-store-item-card wallet-store-item-card--package relative w-full text-left p-4 rounded-2xl border transition-all ${isOwned ? "border-lime-100/70" : "hover:-translate-y-0.5"}`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
