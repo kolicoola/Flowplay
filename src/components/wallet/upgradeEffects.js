@@ -60,7 +60,7 @@ export const UPGRADE_DEFS = {
   tips_500_30: {
     id: "tips_500_30",
     kind: "tips",
-    label: "Tips +500 / 30s",
+    label: "+500 / 30s",
     description: "Permanent tip drops: +$500 every 30 seconds.",
     amount: 500,
     intervalSec: 30,
@@ -69,7 +69,7 @@ export const UPGRADE_DEFS = {
   tips_200_35: {
     id: "tips_200_35",
     kind: "tips",
-    label: "Tips +200 / 35s",
+    label: "+200 / 35s",
     description: "Permanent tip drops: +$200 every 35 seconds.",
     amount: 200,
     intervalSec: 35,
@@ -77,15 +77,17 @@ export const UPGRADE_DEFS = {
   },
   friendship_10: {
     id: "friendship_10",
-    kind: "friendship",
-    label: "Friendship x10",
-    description: "The next 10 incoming payments to you are doubled.",
-    grantPayments: 10,
+    kind: "timed_friendship",
+    label: "Companies 15m",
+    description: "Incoming payments are doubled for 15 minutes.",
+    durationMs: 15 * 60 * 1000,
     cost: 5000000,
   },
 };
 
-export const TIMED_UPGRADES = Object.values(UPGRADE_DEFS).filter((u) => u.kind === "timed_lucky" || u.kind === "timed_speed");
+export const TIMED_UPGRADES = Object.values(UPGRADE_DEFS).filter(
+  (u) => u.kind === "timed_lucky" || u.kind === "timed_speed" || u.kind === "timed_friendship"
+);
 export const TIPS_UPGRADES = Object.values(UPGRADE_DEFS).filter((u) => u.kind === "tips");
 export const FRIENDSHIP_UPGRADE = UPGRADE_DEFS.friendship_10;
 
@@ -105,7 +107,7 @@ export function getUpgradeEffects(upgrades, now = Date.now()) {
   let luckyEdge = 0;
   let speedUntil = 0;
   let speedMultiplier = 1;
-  let friendshipRemaining = 0;
+  let friendshipUntil = 0;
 
   const tipsMap = new Map();
 
@@ -132,7 +134,7 @@ export function getUpgradeEffects(upgrades, now = Date.now()) {
     }
 
     if (def.kind === "tips") {
-      const count = Math.max(0, Number(row.level || 0));
+      const count = Math.min(1, Math.max(0, Number(row.level || 0)));
       if (count <= 0) continue;
       const prev = tipsMap.get(def.id);
       if (!prev) {
@@ -150,13 +152,17 @@ export function getUpgradeEffects(upgrades, now = Date.now()) {
       continue;
     }
 
-    if (def.kind === "friendship") {
-      friendshipRemaining += Math.max(0, Number(row.level || 0));
+    if (def.kind === "timed_friendship") {
+      const expiry = getExpiryFromRow(row, def);
+      if (expiry > now) {
+        friendshipUntil = Math.max(friendshipUntil, expiry);
+      }
     }
   }
 
   const luckyActive = luckyUntil > now;
   const speedActive = speedUntil > now;
+  const friendshipActive = friendshipUntil > now;
 
   return {
     luckyActive,
@@ -168,7 +174,10 @@ export function getUpgradeEffects(upgrades, now = Date.now()) {
     speedUntil,
     speedMultiplier: speedActive ? speedMultiplier : 1,
     tipGenerators: Array.from(tipsMap.values()),
-    friendshipRemaining,
+    friendshipActive,
+    friendshipUntil,
+    // Keep for backward compatibility with existing UI branches.
+    friendshipRemaining: friendshipActive ? 1 : 0,
   };
 }
 
@@ -176,40 +185,41 @@ export async function purchaseUpgrade(walletId, upgradeId) {
   const def = UPGRADE_DEFS[upgradeId];
   if (!def) throw new Error("Unknown upgrade");
 
-  await base44.adjustWalletBalance(walletId, -def.cost);
-
   const existing = await upgradeEntity.filter({ wallet_id: walletId, upgrade_id: upgradeId });
   const row = existing[0];
+  const now = Date.now();
 
-  if (def.kind === "timed_lucky" || def.kind === "timed_speed") {
-    const currentExpiry = row ? getExpiryFromRow(row, def) : 0;
-    const now = Date.now();
-    const nextExpiry = Math.max(now, currentExpiry) + def.durationMs;
-
-    if (row?.id) {
-      await upgradeEntity.update(row.id, { level: nextExpiry });
-    } else {
-      await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: nextExpiry });
-    }
-    return;
+  if (def.kind === "timed_lucky" || def.kind === "timed_speed" || def.kind === "timed_friendship") {
+    const expiresAt = row ? getExpiryFromRow(row, def) : 0;
+    if (expiresAt > now) throw new Error("Already activated.");
   }
 
-  if (def.kind === "tips") {
-    if (row?.id) {
-      await upgradeEntity.update(row.id, { level: Math.max(0, Number(row.level || 0)) + 1 });
-    } else {
-      await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: 1 });
-    }
-    return;
+  if (def.kind === "tips" && Math.max(0, Number(row?.level || 0)) > 0) {
+    throw new Error("Already activated.");
   }
 
-  if (def.kind === "friendship") {
-    const grant = Number(def.grantPayments || 0);
-    if (row?.id) {
-      await upgradeEntity.update(row.id, { level: Math.max(0, Number(row.level || 0)) + grant });
-    } else {
-      await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: grant });
+  await base44.adjustWalletBalance(walletId, -def.cost);
+  try {
+    if (def.kind === "timed_lucky" || def.kind === "timed_speed" || def.kind === "timed_friendship") {
+      const nextExpiry = now + def.durationMs;
+      if (row?.id) {
+        await upgradeEntity.update(row.id, { level: nextExpiry });
+      } else {
+        await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: nextExpiry });
+      }
+      return;
     }
+
+    if (def.kind === "tips") {
+      if (row?.id) {
+        await upgradeEntity.update(row.id, { level: 1 });
+      } else {
+        await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: 1 });
+      }
+    }
+  } catch (error) {
+    await base44.adjustWalletBalance(walletId, def.cost, { allowNegative: true });
+    throw error;
   }
 }
 
@@ -219,10 +229,10 @@ export async function applyFriendshipIncomingBonus(recipientWalletId, amount) {
 
   const rows = await upgradeEntity.filter({ wallet_id: recipientWalletId, upgrade_id: FRIENDSHIP_UPGRADE.id });
   const row = rows[0];
-  const remaining = Math.max(0, Number(row?.level || 0));
-  if (!row?.id || remaining <= 0) return false;
+  if (!row?.id) return false;
+  const expiresAt = getExpiryFromRow(row, FRIENDSHIP_UPGRADE);
+  if (expiresAt <= Date.now()) return false;
 
   await base44.adjustWalletBalance(recipientWalletId, amt);
-  await upgradeEntity.update(row.id, { level: remaining - 1 });
   return true;
 }

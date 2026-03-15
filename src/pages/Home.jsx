@@ -19,7 +19,6 @@ import CharityPage from "../components/wallet/CharityPage";
 import InvestmentPage from "../components/wallet/InvestmentPage";
 import CoinFlipPage from "../components/wallet/CoinFlipPage";
 import DailyGift from "../components/wallet/DailyGift";
-import UpgradeShop from "../components/wallet/UpgradeShop";
 import CollectorOverlay from "../components/wallet/CollectorOverlay";
 
 const STARTUP_TIMEOUT_MS = 6000;
@@ -39,7 +38,6 @@ export default function Home() {
   const [showCharity, setShowCharity] = useState(false);
   const [showInvest, setShowInvest] = useState(false);
   const [showCoinFlip, setShowCoinFlip] = useState(false);
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [myWallet, setMyWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -140,12 +138,6 @@ export default function Home() {
     return found;
   };
 
-  const refreshUpgrades = async () => {
-    if (!myWallet) return;
-    await loadUpgrades(myWallet.id);
-    await refreshData();
-  };
-
   const handleSwitchUser = async (walletId) => {
     if (!walletId) return;
     const all = await base44.entities.Wallet.list();
@@ -229,7 +221,6 @@ export default function Home() {
           onDonate={() => setShowCharity(true)}
           onInvest={() => setShowInvest(true)}
           onCoinFlip={() => setShowCoinFlip(true)}
-          onUpgrade={() => setShowUpgrade(true)}
         />
 
         <DailyGift wallet={myWallet} onRefresh={refreshData} speedMultiplier={upgradeEffects.speedMultiplier} />
@@ -280,15 +271,6 @@ export default function Home() {
             wallet={myWallet}
             onClose={() => setShowStore(false)}
             onRefresh={refreshData}
-          />
-        )}
-        {showUpgrade && (
-          <UpgradeShop
-            wallet={myWallet}
-            onClose={() => setShowUpgrade(false)}
-            onRefresh={refreshData}
-            onBuy={refreshUpgrades}
-            upgradeEffects={upgradeEffects}
           />
         )}
         <QRCodeView

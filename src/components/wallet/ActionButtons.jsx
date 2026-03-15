@@ -1,8 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Send, QrCode, ShoppingBag, Heart, TrendingUp, Coins, Zap } from "lucide-react";
+import { Send, QrCode, ShoppingBag, Heart, TrendingUp, Coins } from "lucide-react";
 
-export default function ActionButtons({ onPayByName, onQRCode, onStore, onDonate, onInvest, onCoinFlip, onUpgrade }) {
+export default function ActionButtons({ onPayByName, onQRCode, onStore, onDonate, onInvest, onCoinFlip }) {
   const actions = [
     { icon: Send,        label: "Send",     color: "from-indigo-500 to-violet-500",  onClick: onPayByName },
     { icon: QrCode,      label: "QR",       color: "from-violet-500 to-purple-500",  onClick: onQRCode },
@@ -10,11 +10,10 @@ export default function ActionButtons({ onPayByName, onQRCode, onStore, onDonate
     { icon: Heart,       label: "Donate",   color: "from-rose-500 to-red-500",       onClick: onDonate },
     { icon: TrendingUp,  label: "Invest",   color: "from-emerald-500 to-teal-500",   onClick: onInvest },
     { icon: Coins,       label: "Flip",     color: "from-amber-500 to-orange-500",   onClick: onCoinFlip },
-    { icon: Zap,         label: "Upgrades", color: "from-yellow-400 to-amber-500",   onClick: onUpgrade },
   ];
 
   return (
-    <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
       {actions.map((action, i) => (
         <motion.button
           key={action.label}

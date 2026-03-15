@@ -1,16 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
-import { ShoppingBag, X, Check, Lock, Type, Palette, Globe, Gem, Brush } from "lucide-react";
+import { ShoppingBag, X, Check, Lock, Type, Palette, Globe, Gem, Brush, FlaskConical, Gauge, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AVATAR_BACKGROUNDS, FONTS, LETTER_COLORS, SITE_BACKGROUNDS, STORE_PACKAGES,
   getAvatarBgStyle, getFontStyle, getLetterColorStyle, getAvatarStyle, HairOverlay
 } from "./avatarUtils";
+import { UPGRADE_DEFS, purchaseUpgrade, getUpgradeEffects } from "./upgradeEffects";
 
 export { getAvatarBgStyle, AVATAR_BACKGROUNDS } from "./avatarUtils";
 
 const TABS = [
+  { id: "items",       label: "Items",         icon: Gem },
   { id: "backgrounds", label: "Avatar BG",    icon: ShoppingBag },
   { id: "fonts",       label: "Fonts",         icon: Type },
   { id: "lettercolor", label: "Letter",        icon: Palette },
@@ -18,16 +20,131 @@ const TABS = [
   { id: "packages",    label: "Packages",      icon: Gem },
 ];
 
+const STORE_ITEM_CARDS = [
+  {
+    id: "lucky_15m",
+    title: "Lucky Potion",
+    subtitle: "15m",
+    icon: FlaskConical,
+    theme: "from-violet-500 to-indigo-700",
+    kind: "timed_lucky",
+  },
+  {
+    id: "speed_15m",
+    title: "OverSpeed",
+    subtitle: "15m",
+    icon: Gauge,
+    theme: "from-sky-500 to-blue-700",
+    kind: "timed_speed",
+  },
+  {
+    id: "friendship_10",
+    title: "Companies",
+    subtitle: "15m",
+    icon: Building2,
+    theme: "from-orange-500 to-rose-700",
+    kind: "timed_friendship",
+  },
+  {
+    id: "tips_500_30",
+    title: "+500 / 30s",
+    subtitle: "Forever",
+    icon: Gem,
+    theme: "from-emerald-500 to-green-700",
+    kind: "tips",
+  },
+  {
+    id: "tips_200_35",
+    title: "+200 / 35s",
+    subtitle: "Forever",
+    icon: Gem,
+    theme: "from-lime-500 to-emerald-700",
+    kind: "tips",
+  },
+];
+
 export default function AvatarStore({ wallet, onClose, onRefresh }) {
-  const [tab, setTab] = useState("backgrounds");
+  const [tab, setTab] = useState("items");
   const [buying, setBuying] = useState(null);
   const [showDrawModal, setShowDrawModal] = useState(false);
   const [brushColor, setBrushColor] = useState("#ffffff");
   const [brushSize, setBrushSize] = useState(10);
+  const [itemRows, setItemRows] = useState([]);
+  const [itemNow, setItemNow] = useState(Date.now());
+  const [itemBalance, setItemBalance] = useState(Number(wallet.balance) || 0);
 
   const canvasRef = useRef(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef(null);
+
+  const itemEffects = getUpgradeEffects(itemRows, itemNow);
+
+  const loadStoreItems = async () => {
+    const rows = await base44.entities.Upgrade.filter({ wallet_id: wallet.id });
+    setItemRows(rows);
+    return rows;
+  };
+
+  useEffect(() => {
+    setItemBalance(Number(wallet.balance) || 0);
+  }, [wallet.balance]);
+
+  useEffect(() => {
+    if (tab !== "items") return;
+    loadStoreItems();
+  }, [tab, wallet.id]);
+
+  useEffect(() => {
+    if (tab !== "items") return;
+    const t = setInterval(() => setItemNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [tab]);
+
+  const isItemActivated = (item) => {
+    if (item.kind === "timed_lucky") return Boolean(itemEffects?.luckyActive);
+    if (item.kind === "timed_speed") return Boolean(itemEffects?.speedActive);
+    if (item.kind === "timed_friendship") return Boolean(itemEffects?.friendshipActive);
+    if (item.kind === "tips") return (itemEffects?.tipGenerators || []).some((t) => t.id === item.id);
+    return false;
+  };
+
+  const itemTimeLeft = (item) => {
+    const fmt = (ms) => {
+      const totalSec = Math.max(0, Math.floor(ms / 1000));
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      return `${m}m ${s}s`;
+    };
+    if (item.kind === "timed_lucky") return fmt(Math.max(0, Number(itemEffects?.luckyUntil || 0) - itemNow));
+    if (item.kind === "timed_speed") return fmt(Math.max(0, Number(itemEffects?.speedUntil || 0) - itemNow));
+    if (item.kind === "timed_friendship") return fmt(Math.max(0, Number(itemEffects?.friendshipUntil || 0) - itemNow));
+    return null;
+  };
+
+  const handleBuyStoreItem = async (item) => {
+    const def = UPGRADE_DEFS[item.id];
+    if (!def) return;
+    if (isItemActivated(item)) {
+      toast.error("Already activated");
+      return;
+    }
+    if (itemBalance < def.cost) {
+      toast.error(`You need $${def.cost.toLocaleString()} to buy this.`);
+      return;
+    }
+
+    setBuying(item.id);
+    try {
+      await purchaseUpgrade(wallet.id, item.id);
+      setItemBalance((prev) => Math.max(0, prev - def.cost));
+      await Promise.all([onRefresh?.(), loadStoreItems()]);
+      toast.success(`${item.title} activated`);
+    } catch (error) {
+      toast.error(error?.message || "Could not activate item");
+    } finally {
+      setBuying(null);
+    }
+  };
 
   const owned = wallet.owned_backgrounds || [];
   const ownedFonts = wallet.owned_fonts || [];
@@ -259,10 +376,10 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div className="flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-violet-400" />
-            <h2 className="text-white font-bold text-lg">Avatar Store</h2>
+            <h2 className="text-white font-bold text-lg">Store</h2>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-slate-400 text-sm font-mono">$<span className="text-white font-bold">{wallet.balance?.toFixed(2)}</span></span>
+            <span className="text-slate-400 text-sm font-mono">$<span className="text-white font-bold">{itemBalance.toFixed(2)}</span></span>
             <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -278,6 +395,48 @@ export default function AvatarStore({ wallet, onClose, onRefresh }) {
             </button>
           ))}
         </div>
+
+        {/* Items */}
+        {tab === "items" && (
+          <div className="overflow-y-auto p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {STORE_ITEM_CARDS.map((item, idx) => {
+                const def = UPGRADE_DEFS[item.id];
+                const active = isItemActivated(item);
+                const isLoading = buying === item.id;
+                const canAfford = itemBalance >= Number(def?.cost || 0);
+                const timeLeft = itemTimeLeft(item);
+                const showActivated = item.kind === "tips" ? active : active && !!timeLeft;
+                const label = showActivated ? "Activated" : `$${Number(def?.cost || 0).toLocaleString()}`;
+
+                return (
+                  <motion.button
+                    key={item.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    disabled={!!buying || active || !canAfford}
+                    onClick={() => handleBuyStoreItem(item)}
+                    className={`relative aspect-square rounded-2xl border border-white/20 bg-gradient-to-br ${item.theme} p-3 text-left overflow-hidden ${active ? "opacity-95" : ""}`}
+                  >
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(255,255,255,0.3)_0,rgba(255,255,255,0.3)_6px,transparent_7px),radial-gradient(circle_at_80%_18%,rgba(255,255,255,0.2)_0,rgba(255,255,255,0.2)_14px,transparent_15px),radial-gradient(circle_at_84%_76%,rgba(255,255,255,0.14)_0,rgba(255,255,255,0.14)_24px,transparent_25px)]" />
+                    <div className="relative z-10 h-full flex flex-col items-center justify-between text-center">
+                      <div className="pt-1" />
+                      <item.icon className="w-7 h-7 text-white drop-shadow" />
+                      <div>
+                        <p className="text-white font-extrabold text-sm leading-tight">{item.title}</p>
+                        <p className="text-white/85 text-[11px] mt-1">{active && timeLeft ? timeLeft : item.subtitle}</p>
+                      </div>
+                      <div className={`w-full rounded-md py-1.5 text-[11px] font-black ${showActivated ? "bg-white text-emerald-700" : canAfford ? "bg-white text-slate-900" : "bg-black/30 text-white/60"}`}>
+                        {isLoading ? "..." : label}
+                      </div>
+                    </div>
+                    {!active && !canAfford && <Lock className="absolute top-2 right-2 w-3.5 h-3.5 text-white/70" />}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Avatar Backgrounds */}
         {tab === "backgrounds" && (
