@@ -24,6 +24,8 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
   const [balance, setBalance] = useState(Number(wallet.balance) || 0);
   const [now, setNow] = useState(Date.now());
 
+  const cardBaseClass = "wallet-upgrade-card";
+
   useEffect(() => { setBalance(Number(wallet.balance) || 0); }, [wallet.balance]);
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -75,15 +77,15 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
             const isActive = (upgradeEffects?.luckyUntil || 0) > now;
             const msLeft = Math.max(0, (upgradeEffects?.luckyUntil || 0) - now);
             return (
-              <div key={upg.id} className="rounded-2xl border p-4 flex items-center gap-4 border-white/10 bg-white/5">
+              <div key={upg.id} className={`${cardBaseClass} wallet-upgrade-card--lucky`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-white font-semibold text-sm">{upg.label}</p>
-                    {isActive && <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">Active</span>}
+                    {isActive && <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold">Active</span>}
                   </div>
-                  <p className="text-slate-400 text-xs mt-0.5">{upg.description}</p>
+                  <p className="text-white/75 text-xs mt-0.5">{upg.description}</p>
                   {isActive && (
-                    <p className="text-yellow-400 text-xs mt-1 font-mono flex items-center gap-1">
+                    <p className="text-amber-100 text-xs mt-1 font-mono flex items-center gap-1">
                       <Clock3 className="w-3 h-3" /> {fmtDuration(msLeft)} left
                     </p>
                   )}
@@ -105,15 +107,15 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
             const isActive = (upgradeEffects?.speedUntil || 0) > now;
             const msLeft = Math.max(0, (upgradeEffects?.speedUntil || 0) - now);
             return (
-              <div key={upg.id} className="rounded-2xl border p-4 flex items-center gap-4 border-white/10 bg-white/5">
+              <div key={upg.id} className={`${cardBaseClass} wallet-upgrade-card--speed`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-white font-semibold text-sm">{upg.label}</p>
-                    {isActive && <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">Active</span>}
+                    {isActive && <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold">Active</span>}
                   </div>
-                  <p className="text-slate-400 text-xs mt-0.5">{upg.description}</p>
+                  <p className="text-white/75 text-xs mt-0.5">{upg.description}</p>
                   {isActive && (
-                    <p className="text-violet-400 text-xs mt-1 font-mono flex items-center gap-1">
+                    <p className="text-cyan-100 text-xs mt-1 font-mono flex items-center gap-1">
                       <Clock3 className="w-3 h-3" /> {fmtDuration(msLeft)} left
                     </p>
                   )}
@@ -134,14 +136,14 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
             const isLoading = buying === upg.id;
             const owned = (upgradeEffects?.tipGenerators || []).find((t) => t.id === upg.id);
             return (
-              <div key={upg.id} className="rounded-2xl border p-4 flex items-center gap-4 border-white/10 bg-white/5">
+              <div key={upg.id} className={`${cardBaseClass} wallet-upgrade-card--tips`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-white font-semibold text-sm">{upg.label}</p>
-                    {!!owned && <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">x{owned.ownedCount}</span>}
+                    {!!owned && <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold">x{owned.ownedCount}</span>}
                   </div>
-                  <p className="text-slate-400 text-xs mt-0.5">{upg.description}</p>
-                  {!!owned && <p className="text-emerald-400 text-xs mt-1 font-mono">Now +${owned.amount.toLocaleString()} every {upg.intervalSec}s</p>}
+                  <p className="text-white/75 text-xs mt-0.5">{upg.description}</p>
+                  {!!owned && <p className="text-lime-100 text-xs mt-1 font-mono">Now +${owned.amount.toLocaleString()} every {upg.intervalSec}s</p>}
                 </div>
                 <button
                   onClick={() => handleBuy(upg)}
@@ -154,15 +156,15 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
           })}
 
           <p className="text-slate-400 text-xs font-mono uppercase tracking-widest mt-4">🤝 Friendship</p>
-          <div className="rounded-2xl border p-4 flex items-center gap-4 border-white/10 bg-white/5">
+          <div className={`${cardBaseClass} wallet-upgrade-card--friendship`}>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-white font-semibold text-sm">{FRIENDSHIP_UPGRADE.label}</p>
-                <span className="text-xs bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded-full font-bold">
+                <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold">
                   {upgradeEffects?.friendshipRemaining || 0} left
                 </span>
               </div>
-              <p className="text-slate-400 text-xs mt-0.5">{FRIENDSHIP_UPGRADE.description}</p>
+              <p className="text-white/75 text-xs mt-0.5">{FRIENDSHIP_UPGRADE.description}</p>
             </div>
             <button
               onClick={() => handleBuy(UPGRADE_DEFS[FRIENDSHIP_UPGRADE.id])}

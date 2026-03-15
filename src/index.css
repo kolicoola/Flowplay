@@ -107,3 +107,71 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-3px); }
 }
+
+.wallet-upgrade-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 30px rgba(15, 23, 42, 0.28);
+}
+
+.wallet-upgrade-card::before,
+.wallet-upgrade-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wallet-upgrade-card::before {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.18) 0, rgba(255, 255, 255, 0.18) 4px, transparent 5px),
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.12) 0, rgba(255, 255, 255, 0.12) 10px, transparent 11px),
+    radial-gradient(circle at 86% 62%, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 18px, transparent 19px),
+    radial-gradient(circle at 24% 76%, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 12px, transparent 13px),
+    radial-gradient(circle at 58% 42%, rgba(255, 255, 255, 0.14) 0, rgba(255, 255, 255, 0.14) 3px, transparent 4px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 52%);
+  mix-blend-mode: screen;
+}
+
+.wallet-upgrade-card::after {
+  background:
+    radial-gradient(circle at 8% 10%, rgba(255, 255, 255, 0.18) 0, rgba(255, 255, 255, 0.18) 36px, transparent 37px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 34%),
+    linear-gradient(0deg, rgba(17, 24, 39, 0.22), transparent 42%);
+  opacity: 0.9;
+}
+
+.wallet-upgrade-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.wallet-upgrade-card--lucky {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #8b5cf6 0%, #7c3aed 48%, #4c1d95 100%);
+}
+
+.wallet-upgrade-card--speed {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #06b6d4 0%, #2563eb 46%, #1e3a8a 100%);
+}
+
+.wallet-upgrade-card--tips {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #22c55e 0%, #16a34a 44%, #14532d 100%);
+}
+
+.wallet-upgrade-card--friendship {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(145deg, #f97316 0%, #ef4444 45%, #7f1d1d 100%);
+}
