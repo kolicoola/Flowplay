@@ -77,15 +77,17 @@ export const UPGRADE_DEFS = {
   },
   friendship_10: {
     id: "friendship_10",
-    kind: "friendship",
-    label: "Friendship x10",
-    description: "The next 10 incoming payments to you are doubled.",
-    grantPayments: 10,
+    kind: "timed_friendship",
+    label: "Friendship Aura 15m",
+    description: "Incoming payments to you are doubled for 15 minutes.",
+    durationMs: 15 * 60 * 1000,
     cost: 5000000,
   },
 };
 
-export const TIMED_UPGRADES = Object.values(UPGRADE_DEFS).filter((u) => u.kind === "timed_lucky" || u.kind === "timed_speed");
+export const TIMED_UPGRADES = Object.values(UPGRADE_DEFS).filter(
+  (u) => u.kind === "timed_lucky" || u.kind === "timed_speed" || u.kind === "timed_friendship"
+);
 export const TIPS_UPGRADES = Object.values(UPGRADE_DEFS).filter((u) => u.kind === "tips");
 export const FRIENDSHIP_UPGRADE = UPGRADE_DEFS.friendship_10;
 
@@ -105,7 +107,7 @@ export function getUpgradeEffects(upgrades, now = Date.now()) {
   let luckyEdge = 0;
   let speedUntil = 0;
   let speedMultiplier = 1;
-  let friendshipRemaining = 0;
+  let friendshipUntil = 0;
 
   const tipsMap = new Map();
 
@@ -150,13 +152,17 @@ export function getUpgradeEffects(upgrades, now = Date.now()) {
       continue;
     }
 
-    if (def.kind === "friendship") {
-      friendshipRemaining += Math.max(0, Number(row.level || 0));
+    if (def.kind === "timed_friendship") {
+      const expiry = getExpiryFromRow(row, def);
+      if (expiry > now) {
+        friendshipUntil = Math.max(friendshipUntil, expiry);
+      }
     }
   }
 
   const luckyActive = luckyUntil > now;
   const speedActive = speedUntil > now;
+  const friendshipActive = friendshipUntil > now;
 
   return {
     luckyActive,
@@ -168,7 +174,8 @@ export function getUpgradeEffects(upgrades, now = Date.now()) {
     speedUntil,
     speedMultiplier: speedActive ? speedMultiplier : 1,
     tipGenerators: Array.from(tipsMap.values()),
-    friendshipRemaining,
+    friendshipActive,
+    friendshipUntil,
   };
 }
 
@@ -178,38 +185,34 @@ export async function purchaseUpgrade(walletId, upgradeId) {
 
   await base44.adjustWalletBalance(walletId, -def.cost);
 
-  const existing = await upgradeEntity.filter({ wallet_id: walletId, upgrade_id: upgradeId });
-  const row = existing[0];
+  try {
+    const existing = await upgradeEntity.filter({ wallet_id: walletId, upgrade_id: upgradeId });
+    const row = existing[0];
 
-  if (def.kind === "timed_lucky" || def.kind === "timed_speed") {
-    const currentExpiry = row ? getExpiryFromRow(row, def) : 0;
-    const now = Date.now();
-    const nextExpiry = Math.max(now, currentExpiry) + def.durationMs;
+    if (def.kind === "timed_lucky" || def.kind === "timed_speed" || def.kind === "timed_friendship") {
+      const currentExpiry = row ? getExpiryFromRow(row, def) : 0;
+      const now = Date.now();
+      const nextExpiry = Math.max(now, currentExpiry) + def.durationMs;
 
-    if (row?.id) {
-      await upgradeEntity.update(row.id, { level: nextExpiry });
-    } else {
-      await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: nextExpiry });
+      if (row?.id) {
+        await upgradeEntity.update(row.id, { level: nextExpiry });
+      } else {
+        await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: nextExpiry });
+      }
+      return;
     }
-    return;
-  }
 
-  if (def.kind === "tips") {
-    if (row?.id) {
-      await upgradeEntity.update(row.id, { level: Math.max(0, Number(row.level || 0)) + 1 });
-    } else {
-      await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: 1 });
+    if (def.kind === "tips") {
+      if (row?.id) {
+        await upgradeEntity.update(row.id, { level: Math.max(0, Number(row.level || 0)) + 1 });
+      } else {
+        await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: 1 });
+      }
+      return;
     }
-    return;
-  }
-
-  if (def.kind === "friendship") {
-    const grant = Number(def.grantPayments || 0);
-    if (row?.id) {
-      await upgradeEntity.update(row.id, { level: Math.max(0, Number(row.level || 0)) + grant });
-    } else {
-      await upgradeEntity.create({ wallet_id: walletId, upgrade_id: upgradeId, level: grant });
-    }
+  } catch (error) {
+    await base44.adjustWalletBalance(walletId, def.cost, { allowNegative: true });
+    throw error;
   }
 }
 
@@ -219,10 +222,11 @@ export async function applyFriendshipIncomingBonus(recipientWalletId, amount) {
 
   const rows = await upgradeEntity.filter({ wallet_id: recipientWalletId, upgrade_id: FRIENDSHIP_UPGRADE.id });
   const row = rows[0];
-  const remaining = Math.max(0, Number(row?.level || 0));
-  if (!row?.id || remaining <= 0) return false;
+  if (!row?.id) return false;
+
+  const expiresAt = getExpiryFromRow(row, FRIENDSHIP_UPGRADE);
+  if (expiresAt <= Date.now()) return false;
 
   await base44.adjustWalletBalance(recipientWalletId, amt);
-  await upgradeEntity.update(row.id, { level: remaining - 1 });
   return true;
 }
