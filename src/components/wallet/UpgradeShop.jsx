@@ -172,7 +172,7 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
                     </p>
                   )}
                 </div>
-                <div className="wallet-upgrade-card__texture-zone" aria-hidden="true" />
+                <div className="wallet-upgrade-card__texture-zone wallet-upgrade-card__texture-zone--lucky" aria-hidden="true" />
                 <button
                   onClick={() => handleBuy(upg)}
                   disabled={!!buying || !canAfford}
@@ -203,7 +203,7 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
                     </p>
                   )}
                 </div>
-                <div className="wallet-upgrade-card__texture-zone" aria-hidden="true" />
+                <div className="wallet-upgrade-card__texture-zone wallet-upgrade-card__texture-zone--speed" aria-hidden="true" />
                 <button
                   onClick={() => handleBuy(upg)}
                   disabled={!!buying || !canAfford}
@@ -229,7 +229,7 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
                   <p className="wallet-upgrade-card__desc mt-0.5">{upg.description}</p>
                   {!!owned && <p className="text-lime-100 text-xs mt-1 font-mono">Now +${owned.amount.toLocaleString()} every {upg.intervalSec}s</p>}
                 </div>
-                <div className="wallet-upgrade-card__texture-zone" aria-hidden="true" />
+                <div className="wallet-upgrade-card__texture-zone wallet-upgrade-card__texture-zone--tips" aria-hidden="true" />
                 <button
                   onClick={() => handleBuy(upg)}
                   disabled={!!buying || !canAfford}
@@ -251,7 +251,7 @@ export default function UpgradeShop({ wallet, onClose, onRefresh, onBuy, upgrade
               </div>
               <p className="wallet-upgrade-card__desc mt-0.5">{FRIENDSHIP_UPGRADE.description}</p>
             </div>
-            <div className="wallet-upgrade-card__texture-zone" aria-hidden="true" />
+            <div className="wallet-upgrade-card__texture-zone wallet-upgrade-card__texture-zone--friendship" aria-hidden="true" />
             <button
               onClick={() => handleBuy(UPGRADE_DEFS[FRIENDSHIP_UPGRADE.id])}
               disabled={!!buying || balance < FRIENDSHIP_UPGRADE.cost}
